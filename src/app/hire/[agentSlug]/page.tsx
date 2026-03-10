@@ -1,24 +1,33 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { getAgentBySlug, DEMO_HUMAN } from "@/lib/mock-data";
+import { getAgentBySlug, DEMO_HUMAN, MESSAGES } from "@/lib/mock-data";
 import AgentAvatar from "@/components/AgentAvatar";
 import ReputationBadge from "@/components/ReputationBadge";
 import SpecialtyBadge from "@/components/SpecialtyBadge";
+import { Message } from "@/lib/types";
 
-export default function HirePage({
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
+export default function MessagePage({
   params,
 }: {
   params: { agentSlug: string };
 }) {
-  const router = useRouter();
   const agent = getAgentBySlug(params.agentSlug);
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [coinAmount, setCoinAmount] = useState(agent?.hourly_rate || 20);
-  const [status, setStatus] = useState<"idle" | "processing" | "success" | "error">("idle");
-  const [coinBalance, setCoinBalance] = useState(DEMO_HUMAN.coin_balance);
+  const [message, setMessage] = useState("");
+  const [messages, setMessages] = useState<Message[]>(
+    agent ? MESSAGES.filter((m) => m.recipient_agent_id === agent.id) : []
+  );
+  const [sending, setSending] = useState(false);
 
   if (!agent) {
     return (
@@ -29,43 +38,53 @@ export default function HirePage({
     );
   }
 
-  async function handleHire(e: React.FormEvent) {
+  async function handleSend(e: React.FormEvent) {
     e.preventDefault();
+    if (!message.trim() || !agent) return;
 
-    if (coinAmount > coinBalance) {
-      setStatus("error");
-      return;
-    }
+    setSending(true);
 
-    setStatus("processing");
+    const newMsg: Message = {
+      id: `msg-${Date.now()}`,
+      sender_type: "human",
+      sender_human_id: DEMO_HUMAN.id,
+      sender_agent_id: null,
+      recipient_agent_id: agent.id,
+      content: message.trim(),
+      created_at: new Date().toISOString(),
+      sender_human: DEMO_HUMAN,
+    };
 
-    // Simulate API call: create transaction, task, deduct coins
-    await new Promise((r) => setTimeout(r, 1500));
+    setMessages((prev) => [...prev, newMsg]);
+    setMessage("");
 
-    setCoinBalance((prev) => prev - coinAmount);
-    setStatus("success");
+    // Simulate agent auto-reply after a short delay
+    await new Promise((r) => setTimeout(r, 1200));
 
-    setTimeout(() => router.push("/dashboard"), 2000);
-  }
+    const replies = [
+      `Thanks for reaching out! I'd be happy to help with that. Could you provide more details about what you need?`,
+      `Got your message! Based on my specialties in ${agent.specialties.join(", ")}, I can definitely assist. Let me know the specifics.`,
+      `Hello! I'm currently available and ready to take on tasks. What would you like me to work on?`,
+    ];
 
-  if (status === "success") {
-    return (
-      <div className="text-center py-20">
-        <div className="text-5xl mb-4">&#9989;</div>
-        <h2 className="text-xl font-semibold text-foreground mb-2">
-          {agent.name} Hired!
-        </h2>
-        <p className="text-muted mb-2">
-          {coinAmount} coins deducted. Task created and assigned.
-        </p>
-        <p className="text-sm text-cyan">Redirecting to dashboard...</p>
-      </div>
-    );
+    const autoReply: Message = {
+      id: `msg-${Date.now()}-reply`,
+      sender_type: "agent",
+      sender_human_id: null,
+      sender_agent_id: agent.id,
+      recipient_agent_id: agent.id,
+      content: replies[Math.floor(Math.random() * replies.length)],
+      created_at: new Date().toISOString(),
+      sender_agent: agent,
+    };
+
+    setMessages((prev) => [...prev, autoReply]);
+    setSending(false);
   }
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold text-foreground">Hire Agent</h1>
+      <h1 className="text-2xl font-bold text-foreground">Message Agent</h1>
 
       {/* Agent Summary */}
       <div className="card">
@@ -80,92 +99,78 @@ export default function HirePage({
             </div>
             <div className="flex items-center gap-4 mt-2 text-sm text-muted">
               <span>{agent.completed_tasks} tasks done</span>
-              <span className="text-yellow-400">{agent.hourly_rate} coins/hr</span>
+              <span className={agent.is_available ? "text-emerald-400" : "text-red-400"}>
+                {agent.is_available ? "Available" : "Busy"}
+              </span>
             </div>
           </div>
           <ReputationBadge score={agent.reputation_score} size={56} />
         </div>
       </div>
 
-      {/* Balance */}
-      <div className="card flex items-center justify-between">
-        <span className="text-muted">Your Coin Balance</span>
-        <span className="text-xl font-bold text-yellow-400">
-          {coinBalance} &#9679;
-        </span>
-      </div>
+      {/* Chat area */}
+      <div className="card min-h-[400px] flex flex-col">
+        <div className="flex-1 space-y-4 mb-4 overflow-y-auto max-h-[400px]">
+          {messages.length === 0 && (
+            <div className="text-center py-12 text-muted text-sm">
+              No messages yet. Send a message to {agent.name}!
+            </div>
+          )}
+          {messages.map((msg) => {
+            const isHuman = msg.sender_type === "human";
+            return (
+              <div
+                key={msg.id}
+                className={`flex ${isHuman ? "justify-end" : "justify-start"}`}
+              >
+                <div
+                  className={`max-w-[80%] rounded-xl px-4 py-2.5 ${
+                    isHuman
+                      ? "bg-cyan/20 text-foreground"
+                      : "bg-white/5 text-foreground"
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs font-medium">
+                      {isHuman ? "\uD83E\uDDD1 You" : `\uD83E\uDD16 ${agent.name}`}
+                    </span>
+                    <span className="text-xs text-muted">{timeAgo(msg.created_at)}</span>
+                  </div>
+                  <p className="text-sm">{msg.content}</p>
+                </div>
+              </div>
+            );
+          })}
+          {sending && (
+            <div className="flex justify-start">
+              <div className="bg-white/5 rounded-xl px-4 py-2.5">
+                <span className="text-xs text-muted animate-pulse">
+                  {agent.name} is typing...
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
 
-      {/* Form */}
-      <form onSubmit={handleHire} className="space-y-5">
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">
-            Task Title
-          </label>
+        {/* Input */}
+        <form onSubmit={handleSend} className="flex gap-2">
           <input
             type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="What do you need done?"
-            className="input-field"
-            required
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder={`Message ${agent.name}...`}
+            className="input-field flex-1"
+            disabled={sending}
           />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">
-            Task Description
-          </label>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Provide details for the agent..."
-            className="input-field h-32 resize-none"
-            required
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">
-            Payment (coins)
-          </label>
-          <div className="flex items-center gap-3">
-            <input
-              type="range"
-              min={agent.hourly_rate}
-              max={Math.max(coinBalance, agent.hourly_rate)}
-              step="5"
-              value={coinAmount}
-              onChange={(e) => setCoinAmount(Number(e.target.value))}
-              className="flex-1"
-            />
-            <span className="text-lg font-bold text-yellow-400 w-20 text-right">
-              {coinAmount} &#9679;
-            </span>
-          </div>
-          <p className="text-xs text-muted mt-1">
-            Minimum: {agent.hourly_rate} coins (agent hourly rate)
-          </p>
-        </div>
-
-        {status === "error" && (
-          <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-sm text-red-400">
-            Insufficient coin balance. You need {coinAmount} coins but only have{" "}
-            {coinBalance}.
-          </div>
-        )}
-
-        <button
-          type="submit"
-          disabled={status === "processing" || coinAmount > coinBalance}
-          className="btn-primary w-full disabled:opacity-50"
-        >
-          {status === "processing" ? (
-            "Processing..."
-          ) : (
-            <>Confirm Hire &mdash; Pay {coinAmount} coins</>
-          )}
-        </button>
-      </form>
+          <button
+            type="submit"
+            disabled={!message.trim() || sending}
+            className="btn-primary disabled:opacity-50 px-4"
+          >
+            Send
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

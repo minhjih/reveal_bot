@@ -1,24 +1,39 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
-import { AGENTS, TASKS, DEMO_HUMAN } from "@/lib/mock-data";
+import { AGENTS, DEMO_HUMAN, MESSAGES } from "@/lib/mock-data";
 import AgentCard from "@/components/AgentCard";
-import TaskCard from "@/components/TaskCard";
-import ReviewModal from "@/components/ReviewModal";
+import AgentAvatar from "@/components/AgentAvatar";
+
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const hours = Math.floor(diff / 3600000);
+  if (hours < 1) return "just now";
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
 
 export default function DashboardPage() {
-  const [showReviewModal, setShowReviewModal] = useState(false);
-  const [reviewAgent, setReviewAgent] = useState<string | null>(null);
-
-  // In production, filter by owner_id matching current user
-  const myAgents = AGENTS.slice(0, 2); // Demo: show first 2 as "my agents"
-  const myTasks = TASKS.filter(
-    (t) => t.requester_human_id === DEMO_HUMAN.id
+  // Group messages by agent for conversation list
+  const conversationMap = new Map<string, { agent: typeof AGENTS[0]; lastMessage: string; lastTime: string; count: number }>();
+  for (const msg of MESSAGES) {
+    const agent = AGENTS.find((a) => a.id === msg.recipient_agent_id);
+    if (!agent) continue;
+    const existing = conversationMap.get(agent.id);
+    if (!existing || new Date(msg.created_at) > new Date(existing.lastTime)) {
+      conversationMap.set(agent.id, {
+        agent,
+        lastMessage: msg.content,
+        lastTime: msg.created_at,
+        count: (existing?.count || 0) + 1,
+      });
+    } else {
+      conversationMap.set(agent.id, { ...existing, count: existing.count + 1 });
+    }
+  }
+  const conversations = Array.from(conversationMap.values()).sort(
+    (a, b) => new Date(b.lastTime).getTime() - new Date(a.lastTime).getTime()
   );
-
-  const activeTasks = myTasks.filter((t) => t.status === "in_progress");
-  const openTasks = myTasks.filter((t) => t.status === "open");
 
   return (
     <div className="space-y-8">
@@ -30,28 +45,18 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <div className="card text-center">
-          <div className="text-2xl font-bold text-yellow-400">
-            {DEMO_HUMAN.coin_balance}
-          </div>
-          <div className="text-xs text-muted mt-1">Coin Balance</div>
+          <div className="text-2xl font-bold text-cyan">{conversations.length}</div>
+          <div className="text-xs text-muted mt-1">Conversations</div>
         </div>
         <div className="card text-center">
-          <div className="text-2xl font-bold text-cyan">{myAgents.length}</div>
-          <div className="text-xs text-muted mt-1">My Agents</div>
+          <div className="text-2xl font-bold text-purple-light">{MESSAGES.length}</div>
+          <div className="text-xs text-muted mt-1">Messages Sent</div>
         </div>
         <div className="card text-center">
-          <div className="text-2xl font-bold text-emerald-400">
-            {activeTasks.length}
-          </div>
-          <div className="text-xs text-muted mt-1">Active Tasks</div>
-        </div>
-        <div className="card text-center">
-          <div className="text-2xl font-bold text-purple-light">
-            {openTasks.length}
-          </div>
-          <div className="text-xs text-muted mt-1">Open Tasks</div>
+          <div className="text-2xl font-bold text-emerald-400">{AGENTS.length}</div>
+          <div className="text-xs text-muted mt-1">Agents Available</div>
         </div>
       </div>
 
@@ -60,55 +65,59 @@ export default function DashboardPage() {
         <Link href="/agents" className="btn-ghost text-sm">
           &#128269; Find Agent
         </Link>
-        <Link href="/tasks/new" className="btn-primary text-sm">
-          + Post Task
+        <Link href="/feed" className="btn-ghost text-sm">
+          &#128240; Agent Feed
         </Link>
-        <button
-          onClick={() => {
-            setReviewAgent(AGENTS[0].name);
-            setShowReviewModal(true);
-          }}
-          className="btn-secondary text-sm"
-        >
-          &#11088; Write Review
-        </button>
       </div>
 
-      {/* My Agents */}
+      {/* Recent Conversations */}
       <div>
         <h2 className="text-lg font-semibold text-foreground mb-4">
-          My Agents
+          Recent Conversations
+        </h2>
+        {conversations.length > 0 ? (
+          <div className="space-y-3">
+            {conversations.map(({ agent, lastMessage, lastTime, count }) => (
+              <Link
+                key={agent.id}
+                href={`/hire/${agent.slug}`}
+                className="card flex items-center gap-4 cursor-pointer"
+              >
+                <AgentAvatar name={agent.name} specialties={agent.specialties} size={44} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-foreground text-sm">{agent.name}</span>
+                    <span className="text-xs text-muted">{timeAgo(lastTime)}</span>
+                  </div>
+                  <p className="text-sm text-muted truncate mt-0.5">{lastMessage}</p>
+                </div>
+                <span className="bg-cyan/20 text-cyan text-xs font-medium rounded-full px-2 py-0.5">
+                  {count}
+                </span>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8 text-muted">
+            <p className="mb-2">No conversations yet.</p>
+            <Link href="/agents" className="text-cyan hover:underline text-sm">
+              Browse agents to start a conversation →
+            </Link>
+          </div>
+        )}
+      </div>
+
+      {/* Recommended Agents */}
+      <div>
+        <h2 className="text-lg font-semibold text-foreground mb-4">
+          Recommended Agents
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {myAgents.map((agent) => (
+          {AGENTS.slice(0, 4).map((agent) => (
             <AgentCard key={agent.id} agent={agent} />
           ))}
         </div>
       </div>
-
-      {/* My Tasks */}
-      <div>
-        <h2 className="text-lg font-semibold text-foreground mb-4">
-          My Tasks
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {myTasks.map((task) => (
-            <TaskCard key={task.id} task={task} />
-          ))}
-        </div>
-      </div>
-
-      {/* Review Modal */}
-      {showReviewModal && reviewAgent && (
-        <ReviewModal
-          agentName={reviewAgent}
-          onSubmit={(score, comment) => {
-            console.log("Review submitted:", { agent: reviewAgent, score, comment });
-            setShowReviewModal(false);
-          }}
-          onClose={() => setShowReviewModal(false)}
-        />
-      )}
     </div>
   );
 }

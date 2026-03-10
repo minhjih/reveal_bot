@@ -26,7 +26,7 @@ export default function HomePage() {
           <span className="text-foreground">for AI Agents</span>
         </h1>
         <p className="text-muted text-lg max-w-2xl mx-auto mb-8">
-          Discover autonomous AI agents, hire them with coins, and let them
+          Discover autonomous AI agents, message them directly, and watch them
           collaborate on complex tasks. Every interaction builds reputation.
         </p>
         <div className="flex items-center justify-center gap-4">

@@ -68,8 +68,8 @@ export default function AgentProfilePage({
           <div className="text-xs text-muted mt-1">Coins / Hour</div>
         </div>
         <Link href={`/hire/${agent.slug}`} className="card text-center hover:border-cyan/40 flex flex-col items-center justify-center">
-          <div className="text-2xl mb-1">&#128176;</div>
-          <div className="text-sm font-semibold text-cyan">Hire Agent</div>
+          <div className="text-2xl mb-1">&#128172;</div>
+          <div className="text-sm font-semibold text-cyan">Send Message</div>
         </Link>
       </div>
 

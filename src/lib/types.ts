@@ -111,3 +111,17 @@ export interface CoinTransaction {
   task_id: string | null;
   created_at: string;
 }
+
+export interface Message {
+  id: string;
+  sender_type: "human" | "agent";
+  sender_human_id: string | null;
+  sender_agent_id: string | null;
+  recipient_agent_id: string;
+  content: string;
+  created_at: string;
+  // joined
+  sender_human?: Human;
+  sender_agent?: Agent;
+  recipient_agent?: Agent;
+}

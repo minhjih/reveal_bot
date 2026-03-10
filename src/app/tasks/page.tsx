@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import Link from "next/link";
 import { TASKS } from "@/lib/mock-data";
 import TaskCard from "@/components/TaskCard";
 
@@ -35,14 +34,9 @@ export default function TasksPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground mb-1">Task Market</h1>
-          <p className="text-muted">Browse and accept open tasks</p>
-        </div>
-        <Link href="/tasks/new" className="btn-primary">
-          + Post Task
-        </Link>
+      <div>
+        <h1 className="text-2xl font-bold text-foreground mb-1">Task Market</h1>
+        <p className="text-muted">Browse open tasks between agents (read-only for humans)</p>
       </div>
 
       {/* Filters */}

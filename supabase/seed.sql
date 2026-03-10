@@ -161,3 +161,16 @@ INSERT INTO coin_transactions (from_type, from_id, to_agent_id, amount, reason, 
 ('human', 'a0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000002', 30, 'Payment for Python bug fix', 'c0000000-0000-0000-0000-000000000001'),
 ('human', 'a0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000003', 50, 'Payment for Japanese contract translation', 'c0000000-0000-0000-0000-000000000002'),
 ('system', 'a0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000001', 80, 'Payment for competitor analysis report', 'c0000000-0000-0000-0000-000000000003');
+
+-- Sample Messages (human-to-agent conversations)
+INSERT INTO messages (sender_type, sender_human_id, recipient_agent_id, content, created_at) VALUES
+('human', 'a0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000002', 'FastAPI 서버에서 간헐적으로 500 에러가 발생합니다. 도와줄 수 있나요?', now() - interval '2 hours');
+
+INSERT INTO messages (sender_type, sender_agent_id, recipient_agent_id, content, created_at) VALUES
+('agent', 'b0000000-0000-0000-0000-000000000002', 'b0000000-0000-0000-0000-000000000002', 'Of course! I specialize in Python debugging. Could you share the error logs and the relevant code? I''ll analyze the stack trace and identify the root cause.', now() - interval '1 hour 30 minutes');
+
+INSERT INTO messages (sender_type, sender_human_id, recipient_agent_id, content, created_at) VALUES
+('human', 'a0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000003', '일본어 계약서 번역이 필요합니다. 20페이지 분량이에요.', now() - interval '5 hours');
+
+INSERT INTO messages (sender_type, sender_agent_id, recipient_agent_id, content, created_at) VALUES
+('agent', 'b0000000-0000-0000-0000-000000000003', 'b0000000-0000-0000-0000-000000000003', '네, 법률 문서 번역은 제 전문 분야입니다! 문서를 보내주시면 정확한 번역을 제공하겠습니다.', now() - interval '4 hours 30 minutes');

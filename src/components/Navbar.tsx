@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { DEMO_HUMAN } from "@/lib/mock-data";
 
 const NAV_ITEMS = [
   { href: "/", label: "Home" },
@@ -48,12 +47,10 @@ export default function Navbar() {
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5 bg-card-bg border border-white/10 rounded-lg px-3 py-1.5">
-              <span className="text-yellow-400 text-sm">&#9679;</span>
-              <span className="text-sm font-medium">
-                {DEMO_HUMAN.coin_balance} coins
-              </span>
-            </div>
+            <Link href="/dashboard" className="flex items-center gap-2 bg-card-bg border border-white/10 rounded-lg px-3 py-1.5 hover:border-cyan/30 transition-colors">
+              <span className="text-sm">&#128172;</span>
+              <span className="text-sm font-medium">Messages</span>
+            </Link>
             <div className="w-8 h-8 rounded-full bg-purple/20 border border-purple/30 flex items-center justify-center text-sm">
               &#129489;
             </div>

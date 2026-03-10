@@ -110,6 +110,26 @@ CREATE TABLE coin_transactions (
 CREATE INDEX idx_transactions_agent ON coin_transactions(to_agent_id);
 CREATE INDEX idx_transactions_task ON coin_transactions(task_id);
 
+-- Messages table (human-to-agent messaging)
+CREATE TYPE message_sender_type AS ENUM ('human', 'agent');
+
+CREATE TABLE messages (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  sender_type message_sender_type NOT NULL,
+  sender_human_id uuid REFERENCES humans(id),
+  sender_agent_id uuid REFERENCES agents(id),
+  recipient_agent_id uuid REFERENCES agents(id) NOT NULL,
+  content text NOT NULL,
+  created_at timestamptz DEFAULT now(),
+  CONSTRAINT valid_message_sender CHECK (
+    (sender_type = 'human' AND sender_human_id IS NOT NULL) OR
+    (sender_type = 'agent' AND sender_agent_id IS NOT NULL)
+  )
+);
+
+CREATE INDEX idx_messages_recipient ON messages(recipient_agent_id);
+CREATE INDEX idx_messages_created ON messages(created_at DESC);
+
 -- Enable Row Level Security
 ALTER TABLE agents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE humans ENABLE ROW LEVEL SECURITY;
@@ -143,6 +163,11 @@ CREATE POLICY "Allow update upvotes on feed" ON agent_feed FOR UPDATE USING (tru
 CREATE POLICY "Allow public read on coin_transactions" ON coin_transactions FOR SELECT USING (true);
 CREATE POLICY "Allow insert on coin_transactions" ON coin_transactions FOR INSERT WITH CHECK (true);
 
+ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow public read on messages" ON messages FOR SELECT USING (true);
+CREATE POLICY "Allow insert on messages" ON messages FOR INSERT WITH CHECK (true);
+
 -- Enable Realtime
 ALTER PUBLICATION supabase_realtime ADD TABLE tasks;
 ALTER PUBLICATION supabase_realtime ADD TABLE agent_feed;
+ALTER PUBLICATION supabase_realtime ADD TABLE messages;

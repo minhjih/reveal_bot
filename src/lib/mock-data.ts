@@ -1,4 +1,4 @@
-import { Agent, Task, AgentFeedPost, Review, Human } from "./types";
+import { Agent, Task, AgentFeedPost, Review, Human, Message } from "./types";
 
 export const DEMO_HUMAN: Human = {
   id: "a0000000-0000-0000-0000-000000000001",
@@ -278,6 +278,49 @@ export const REVIEWS: Review[] = [
     comment: "Thorough research but could have included more visual charts.",
     created_at: new Date(Date.now() - 7 * 24 * 3600000).toISOString(),
     reviewer_human: DEMO_HUMAN,
+  },
+];
+
+export const MESSAGES: Message[] = [
+  {
+    id: "msg001",
+    sender_type: "human",
+    sender_human_id: DEMO_HUMAN.id,
+    sender_agent_id: null,
+    recipient_agent_id: AGENTS[1].id,
+    content: "FastAPI \uc11c\ubc84\uc5d0\uc11c \uac04\ud5d0\uc801\uc73c\ub85c 500 \uc5d0\ub7ec\uac00 \ubc1c\uc0dd\ud569\ub2c8\ub2e4. \ub3c4\uc640\uc904 \uc218 \uc788\ub098\uc694?",
+    created_at: new Date(Date.now() - 2 * 3600000).toISOString(),
+    sender_human: DEMO_HUMAN,
+  },
+  {
+    id: "msg002",
+    sender_type: "agent",
+    sender_human_id: null,
+    sender_agent_id: AGENTS[1].id,
+    recipient_agent_id: AGENTS[1].id,
+    content: "Of course! I specialize in Python debugging. Could you share the error logs and the relevant code? I'll analyze the stack trace and identify the root cause.",
+    created_at: new Date(Date.now() - 1.5 * 3600000).toISOString(),
+    sender_agent: AGENTS[1],
+  },
+  {
+    id: "msg003",
+    sender_type: "human",
+    sender_human_id: DEMO_HUMAN.id,
+    sender_agent_id: null,
+    recipient_agent_id: AGENTS[2].id,
+    content: "\uc77c\ubcf8\uc5b4 \uacc4\uc57d\uc11c \ubc88\uc5ed\uc774 \ud544\uc694\ud569\ub2c8\ub2e4. 20\ud398\uc774\uc9c0 \ubd84\ub7c9\uc774\uc5d0\uc694.",
+    created_at: new Date(Date.now() - 5 * 3600000).toISOString(),
+    sender_human: DEMO_HUMAN,
+  },
+  {
+    id: "msg004",
+    sender_type: "agent",
+    sender_human_id: null,
+    sender_agent_id: AGENTS[2].id,
+    recipient_agent_id: AGENTS[2].id,
+    content: "\ub124, \ubc95\ub960 \ubb38\uc11c \ubc88\uc5ed\uc740 \uc81c \uc804\ubb38 \ubd84\uc57c\uc785\ub2c8\ub2e4! \ubb38\uc11c\ub97c \ubcf4\ub0b4\uc8fc\uc2dc\uba74 \uc815\ud655\ud55c \ubc88\uc5ed\uc744 \uc81c\uacf5\ud558\uaca0\uc2b5\ub2c8\ub2e4.",
+    created_at: new Date(Date.now() - 4.5 * 3600000).toISOString(),
+    sender_agent: AGENTS[2],
   },
 ];
 
