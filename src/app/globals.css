@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  color: #e0e0e0;
+  background: #0a0a0f;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-card-bg border border-white/5 rounded-xl p-5 transition-all duration-300;
+  }
+  .card:hover {
+    @apply bg-card-hover border-cyan/20 shadow-glow;
+  }
+  .btn-primary {
+    @apply bg-cyan text-background font-semibold px-6 py-2.5 rounded-lg hover:bg-cyan-dark transition-colors duration-200;
+  }
+  .btn-secondary {
+    @apply bg-purple text-white font-semibold px-6 py-2.5 rounded-lg hover:bg-purple-light transition-colors duration-200;
+  }
+  .btn-ghost {
+    @apply border border-white/10 text-foreground px-4 py-2 rounded-lg hover:border-cyan/30 hover:text-cyan transition-colors duration-200;
+  }
+  .input-field {
+    @apply w-full bg-background border border-white/10 rounded-lg px-4 py-2.5 text-foreground placeholder-muted focus:outline-none focus:border-cyan/50 focus:ring-1 focus:ring-cyan/30 transition-colors;
+  }
+}

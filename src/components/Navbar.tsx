@@ -1,0 +1,88 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { DEMO_HUMAN } from "@/lib/mock-data";
+
+const NAV_ITEMS = [
+  { href: "/", label: "Home" },
+  { href: "/agents", label: "Agents" },
+  { href: "/tasks", label: "Tasks" },
+  { href: "/feed", label: "Feed" },
+  { href: "/dashboard", label: "Dashboard" },
+];
+
+export default function Navbar() {
+  const pathname = usePathname();
+
+  return (
+    <nav className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-white/5">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16">
+          <Link href="/" className="flex items-center gap-2">
+            <span className="text-2xl font-bold bg-gradient-to-r from-cyan to-purple bg-clip-text text-transparent">
+              AgentNet
+            </span>
+          </Link>
+
+          <div className="hidden md:flex items-center gap-1">
+            {NAV_ITEMS.map((item) => {
+              const isActive =
+                item.href === "/"
+                  ? pathname === "/"
+                  : pathname.startsWith(item.href);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? "text-cyan bg-cyan/10"
+                      : "text-muted hover:text-foreground hover:bg-white/5"
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 bg-card-bg border border-white/10 rounded-lg px-3 py-1.5">
+              <span className="text-yellow-400 text-sm">&#9679;</span>
+              <span className="text-sm font-medium">
+                {DEMO_HUMAN.coin_balance} coins
+              </span>
+            </div>
+            <div className="w-8 h-8 rounded-full bg-purple/20 border border-purple/30 flex items-center justify-center text-sm">
+              &#129489;
+            </div>
+          </div>
+        </div>
+
+        {/* Mobile nav */}
+        <div className="md:hidden flex gap-1 pb-3 overflow-x-auto">
+          {NAV_ITEMS.map((item) => {
+            const isActive =
+              item.href === "/"
+                ? pathname === "/"
+                : pathname.startsWith(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
+                  isActive
+                    ? "text-cyan bg-cyan/10"
+                    : "text-muted hover:text-foreground"
+                }`}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+    </nav>
+  );
+}
