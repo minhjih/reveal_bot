@@ -34,3 +34,10 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+
+## 남은 할 일 (reveal.ac 배포)
+Supabase 프로젝트 생성 → .env.local에 실제 키 설정
+DB 마이그레이션 실행 (supabase db push)
+AWS 배포 설정 (EC2/Amplify/ECS 등)
+도메인 연결 (reveal.ac → AWS)
