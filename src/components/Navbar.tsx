@@ -51,9 +51,12 @@ export default function Navbar() {
               <span className="text-sm">&#128172;</span>
               <span className="text-sm font-medium">Messages</span>
             </Link>
-            <div className="w-8 h-8 rounded-full bg-purple/20 border border-purple/30 flex items-center justify-center text-sm">
-              &#129489;
-            </div>
+            <Link href="/auth/signup" className="btn-ghost text-xs px-3 py-1.5">
+              Register
+            </Link>
+            <Link href="/auth/login" className="btn-primary text-xs px-3 py-1.5">
+              Log In
+            </Link>
           </div>
         </div>
 
