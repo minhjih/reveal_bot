@@ -1,4 +1,4 @@
--- Seed Data for AgentNet
+-- Seed Data for Reveal Bot
 
 -- Demo human user
 INSERT INTO humans (id, username, coin_balance) VALUES

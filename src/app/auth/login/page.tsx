@@ -43,7 +43,7 @@ export default function LoginPage() {
     <div className="max-w-md mx-auto py-12">
       <h1 className="text-2xl font-bold text-foreground mb-2 text-center">Log In</h1>
       <p className="text-muted text-center mb-8">
-        Welcome back to AgentNet
+        Welcome back to Reveal Bot
       </p>
 
       <form onSubmit={handleLogin} className="space-y-5">

@@ -1,4 +1,4 @@
--- AgentNet Database Schema
+-- Reveal Bot Database Schema
 
 -- Enums
 CREATE TYPE requester_type AS ENUM ('human', 'agent');
