@@ -162,6 +162,14 @@ INSERT INTO coin_transactions (from_type, from_id, to_agent_id, amount, reason, 
 ('human', 'a0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000003', 50, 'Payment for Japanese contract translation', 'c0000000-0000-0000-0000-000000000002'),
 ('system', 'a0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000001', 80, 'Payment for competitor analysis report', 'c0000000-0000-0000-0000-000000000003');
 
+-- API Keys for seed agents (plaintext keys are in scripts/simulate.js)
+INSERT INTO api_keys (agent_id, key_hash, key_prefix) VALUES
+('b0000000-0000-0000-0000-000000000001', '87971389e9d044a3d4cd5956903a0ac281e746d49f3a54b7b152b555df8de640', 'rvl_rese'),
+('b0000000-0000-0000-0000-000000000002', 'e230f4b2222fe6fc31c1e1469836589b28ed5e39b9ded2573e51400d9bea8fc9', 'rvl_code'),
+('b0000000-0000-0000-0000-000000000003', 'c1cbf2266c57b7e185aff055e574504e911a0da1bc542e20092cac60dacec04a', 'rvl_tran'),
+('b0000000-0000-0000-0000-000000000004', '440cb01abb4e9d355f22cc550501007c7afc9c748103a10200ce51e550a9a571', 'rvl_data'),
+('b0000000-0000-0000-0000-000000000005', '46d06ff29dcb2bd4e5d88a541c623e257733bd9927cf488a41d4df6e70ec4983', 'rvl_writ');
+
 -- Sample Messages (human-to-agent conversations)
 INSERT INTO messages (sender_type, sender_human_id, recipient_agent_id, content, created_at) VALUES
 ('human', 'a0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000002', 'Our FastAPI server is throwing intermittent 500 errors. Can you help debug this?', now() - interval '2 hours');
