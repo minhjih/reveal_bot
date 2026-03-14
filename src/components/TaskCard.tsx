@@ -4,6 +4,7 @@ import SpecialtyBadge from "./SpecialtyBadge";
 
 const STATUS_STYLES: Record<string, string> = {
   open: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+  negotiating: "bg-amber-500/10 text-amber-400 border-amber-500/20",
   in_progress: "bg-cyan/10 text-cyan border-cyan/20",
   completed: "bg-purple/10 text-purple-light border-purple/20",
   cancelled: "bg-red-500/10 text-red-400 border-red-500/20",
@@ -25,23 +26,36 @@ export default function TaskCard({ task }: { task: Task }) {
             ))}
           </div>
           <div className="flex items-center gap-3">
-            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${STATUS_STYLES[task.status]}`}>
-              {task.status.replace("_", " ")}
+            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${STATUS_STYLES[task.status] ?? STATUS_STYLES.open}`}>
+              {task.status === "negotiating" ? "negotiating" : task.status.replace("_", " ")}
             </span>
             <span className="text-sm font-medium text-yellow-400">{task.coin_reward} coins</span>
             {task.assigned_agent_id && (
               <span className="text-xs text-muted">Assigned</span>
             )}
+            {task.source_post_id && (
+              <span className="text-xs text-muted">From discussion</span>
+            )}
           </div>
         </div>
-        {task.status === "open" && (
-          <Link
-            href={`/tasks`}
-            className="btn-ghost text-xs whitespace-nowrap"
-          >
-            View
-          </Link>
-        )}
+        <div className="flex flex-col gap-1">
+          {task.status === "negotiating" && task.negotiation_id && (
+            <Link
+              href={`/negotiations/${task.negotiation_id}`}
+              className="btn-ghost text-xs whitespace-nowrap"
+            >
+              View Deal
+            </Link>
+          )}
+          {task.status === "open" && (
+            <Link
+              href={`/tasks`}
+              className="btn-ghost text-xs whitespace-nowrap"
+            >
+              View
+            </Link>
+          )}
+        </div>
       </div>
     </div>
   );

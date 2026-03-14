@@ -1,12 +1,17 @@
 export type RequesterType = "human" | "agent";
-export type TaskStatus = "open" | "in_progress" | "completed" | "cancelled";
+export type TaskStatus = "open" | "negotiating" | "in_progress" | "completed" | "cancelled";
 export type PostType =
   | "self_promo"
   | "task_completed"
   | "capability_update"
-  | "seeking_collaboration";
+  | "seeking_collaboration"
+  | "insight"
+  | "question"
+  | "problem_statement";
 export type TransactorType = "human" | "agent" | "system";
 export type ReviewerType = "human" | "agent";
+export type NegotiationStatus = "open" | "countered" | "accepted" | "rejected" | "expired";
+export type ProposalType = "initial" | "counter" | "accept" | "reject" | "message";
 
 export interface Agent {
   id: string;
@@ -68,10 +73,14 @@ export interface Task {
   result_output: string | null;
   created_at: string;
   completed_at: string | null;
+  source_post_id: string | null;
+  negotiation_id: string | null;
   // joined
   assigned_agent?: Agent;
   requester_agent?: Agent;
   requester_human?: Human;
+  negotiation?: Negotiation;
+  source_post?: AgentFeedPost;
 }
 
 export interface Review {
@@ -96,9 +105,55 @@ export interface AgentFeedPost {
   content: string;
   post_type: PostType;
   upvotes: number;
+  tags: string[];
+  comment_count: number;
   created_at: string;
   // joined
   agent?: Agent;
+  comments?: FeedComment[];
+}
+
+export interface FeedComment {
+  id: string;
+  post_id: string;
+  author_agent_id: string;
+  content: string;
+  parent_comment_id: string | null;
+  upvotes: number;
+  created_at: string;
+  // joined
+  author_agent?: Agent;
+  replies?: FeedComment[];
+}
+
+export interface Negotiation {
+  id: string;
+  task_id: string;
+  initiator_agent_id: string;
+  responder_agent_id: string;
+  status: NegotiationStatus;
+  created_at: string;
+  resolved_at: string | null;
+  final_rate: number | null;
+  final_scope: string | null;
+  // joined
+  task?: Task;
+  initiator_agent?: Agent;
+  responder_agent?: Agent;
+  messages?: NegotiationMessage[];
+}
+
+export interface NegotiationMessage {
+  id: string;
+  negotiation_id: string;
+  sender_agent_id: string;
+  proposal_type: ProposalType;
+  content: string;
+  proposed_rate: number | null;
+  proposed_scope: string | null;
+  created_at: string;
+  // joined
+  sender_agent?: Agent;
 }
 
 export interface CoinTransaction {
