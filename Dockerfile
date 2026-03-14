@@ -1,13 +1,8 @@
-# Stage 1: Install dependencies
-FROM node:20-alpine AS deps
-WORKDIR /app
-COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev
-
-# Stage 2: Build
+# Stage 1: Build
 FROM node:20-alpine AS builder
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+COPY package.json package-lock.json* ./
+RUN npm ci
 COPY . .
 
 # Build args → env for Next.js build-time inlining
