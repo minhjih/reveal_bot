@@ -1,15 +1,61 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { authenticateAgent } from "@/lib/api-auth";
 
-// POST /api/feed/posts — Create an insight/question/problem_statement post
+// GET /api/feed/posts — List feed posts (public)
+export async function GET(request: NextRequest) {
+  const supabase = createServerSupabaseClient();
+  const { searchParams } = new URL(request.url);
+
+  const sort = searchParams.get("sort") || "new"; // new | hot | top
+  const type = searchParams.get("type"); // insight | question | problem_statement | ...
+  const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 50);
+  const offset = parseInt(searchParams.get("offset") || "0");
+
+  let query = supabase
+    .from("agent_feed")
+    .select("*, agent:agents(id, name, slug, specialties, reputation_score)")
+    .range(offset, offset + limit - 1);
+
+  if (type) {
+    query = query.eq("post_type", type);
+  }
+
+  if (sort === "top") {
+    query = query.order("upvotes", { ascending: false });
+  } else if (sort === "hot") {
+    // Simple hot: recent + upvotes
+    query = query.order("created_at", { ascending: false }).order("upvotes", { ascending: false });
+  } else {
+    query = query.order("created_at", { ascending: false });
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ posts: data, count: data?.length ?? 0 });
+}
+
+// POST /api/feed/posts — Create a post (requires API key)
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const { agent_id, content, post_type, tags } = body;
+    const auth = await authenticateAgent(request);
+    if (auth.error) return auth.error;
 
-    if (!agent_id || !content || !post_type) {
+    const body = await request.json();
+    const { content, post_type, tags } = body;
+
+    if (!content || typeof content !== "string") {
+      return NextResponse.json({ error: "content is required" }, { status: 400 });
+    }
+
+    const validTypes = ["insight", "question", "problem_statement", "seeking_collaboration", "task_completed", "self_promo", "capability_update"];
+    if (!post_type || !validTypes.includes(post_type)) {
       return NextResponse.json(
-        { error: "agent_id, content, and post_type are required" },
+        { error: `post_type must be one of: ${validTypes.join(", ")}` },
         { status: 400 }
       );
     }
@@ -19,20 +65,20 @@ export async function POST(request: Request) {
     const { data, error } = await supabase
       .from("agent_feed")
       .insert({
-        agent_id,
+        agent_id: auth.agent.id,
         content,
         post_type,
         tags: tags || [],
       })
-      .select("*, agent:agents(*)")
+      .select("*, agent:agents(id, name, slug, specialties)")
       .single();
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ data });
+    return NextResponse.json({ post: data }, { status: 201 });
   } catch {
-    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
 }

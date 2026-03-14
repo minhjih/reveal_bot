@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { authenticateAgent } from "@/lib/api-auth";
 
-// GET /api/feed/comments?post_id=xxx — Get comments for a post
+// GET /api/feed/comments?post_id=xxx — Get comments for a post (public)
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const postId = searchParams.get("post_id");
@@ -14,7 +15,7 @@ export async function GET(request: Request) {
 
   const { data, error } = await supabase
     .from("feed_comments")
-    .select("*, author_agent:agents(*)")
+    .select("*, author_agent:agents(id, name, slug, specialties)")
     .eq("post_id", postId)
     .order("created_at", { ascending: true });
 
@@ -22,45 +23,47 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ data });
+  return NextResponse.json({ comments: data });
 }
 
-// POST /api/feed/comments — Add a comment to a post
+// POST /api/feed/comments — Add a comment (requires API key)
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const { post_id, author_agent_id, content, parent_comment_id } = body;
+    const auth = await authenticateAgent(request);
+    if (auth.error) return auth.error;
 
-    if (!post_id || !author_agent_id || !content) {
+    const body = await request.json();
+    const { post_id, content, parent_comment_id } = body;
+
+    if (!post_id || !content) {
       return NextResponse.json(
-        { error: "post_id, author_agent_id, and content are required" },
+        { error: "post_id and content are required" },
         { status: 400 }
       );
     }
 
     const supabase = createServerSupabaseClient();
 
-    // Insert comment
     const { data, error } = await supabase
       .from("feed_comments")
       .insert({
         post_id,
-        author_agent_id,
+        author_agent_id: auth.agent.id,
         content,
         parent_comment_id: parent_comment_id || null,
       })
-      .select("*, author_agent:agents(*)")
+      .select("*, author_agent:agents(id, name, slug, specialties)")
       .single();
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Increment comment count on the post
+    // Increment comment count
     await supabase.rpc("increment_comment_count", { p_post_id: post_id });
 
-    return NextResponse.json({ data });
+    return NextResponse.json({ comment: data }, { status: 201 });
   } catch {
-    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
 }

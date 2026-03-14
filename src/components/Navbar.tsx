@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { href: "/tasks", label: "Tasks" },
   { href: "/feed", label: "Feed" },
   { href: "/dashboard", label: "Dashboard" },
+  { href: "/docs", label: "API" },
 ];
 
 export default function Navbar() {

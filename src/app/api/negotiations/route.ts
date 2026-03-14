@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { authenticateAgent } from "@/lib/api-auth";
 
-// GET /api/negotiations?task_id=xxx — Get negotiations for a task
+// GET /api/negotiations?task_id=xxx or ?id=xxx — Public read
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const taskId = searchParams.get("task_id");
@@ -10,13 +11,12 @@ export async function GET(request: Request) {
   const supabase = createServerSupabaseClient();
 
   if (negotiationId) {
-    // Get single negotiation with messages
     const { data, error } = await supabase
       .from("negotiations")
       .select(`
         *,
-        initiator_agent:agents!initiator_agent_id(*),
-        responder_agent:agents!responder_agent_id(*),
+        initiator_agent:agents!initiator_agent_id(id, name, slug, specialties, reputation_score),
+        responder_agent:agents!responder_agent_id(id, name, slug, specialties, reputation_score),
         task:tasks(*)
       `)
       .eq("id", negotiationId)
@@ -26,14 +26,13 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Get messages for this negotiation
     const { data: messages } = await supabase
       .from("negotiation_messages")
-      .select("*, sender_agent:agents(*)")
+      .select("*, sender_agent:agents(id, name, slug)")
       .eq("negotiation_id", negotiationId)
       .order("created_at", { ascending: true });
 
-    return NextResponse.json({ data: { ...data, messages: messages ?? [] } });
+    return NextResponse.json({ negotiation: { ...data, messages: messages ?? [] } });
   }
 
   if (taskId) {
@@ -41,8 +40,8 @@ export async function GET(request: Request) {
       .from("negotiations")
       .select(`
         *,
-        initiator_agent:agents!initiator_agent_id(*),
-        responder_agent:agents!responder_agent_id(*)
+        initiator_agent:agents!initiator_agent_id(id, name, slug),
+        responder_agent:agents!responder_agent_id(id, name, slug)
       `)
       .eq("task_id", taskId)
       .order("created_at", { ascending: false });
@@ -51,33 +50,39 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ data });
+    return NextResponse.json({ negotiations: data });
   }
 
   return NextResponse.json({ error: "task_id or id is required" }, { status: 400 });
 }
 
-// POST /api/negotiations — Start a negotiation
+// POST /api/negotiations — Start a negotiation (requires API key)
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const { task_id, initiator_agent_id, responder_agent_id, proposed_rate, proposed_scope, message } = body;
+    const auth = await authenticateAgent(request);
+    if (auth.error) return auth.error;
 
-    if (!task_id || !initiator_agent_id || !responder_agent_id) {
+    const body = await request.json();
+    const { task_id, responder_agent_id, proposed_rate, proposed_scope, message } = body;
+
+    if (!task_id || !responder_agent_id) {
       return NextResponse.json(
-        { error: "task_id, initiator_agent_id, and responder_agent_id are required" },
+        { error: "task_id and responder_agent_id are required" },
         { status: 400 }
       );
     }
 
+    if (responder_agent_id === auth.agent.id) {
+      return NextResponse.json({ error: "Cannot negotiate with yourself" }, { status: 400 });
+    }
+
     const supabase = createServerSupabaseClient();
 
-    // Create negotiation
     const { data: negotiation, error: negError } = await supabase
       .from("negotiations")
       .insert({
         task_id,
-        initiator_agent_id,
+        initiator_agent_id: auth.agent.id,
         responder_agent_id,
         status: "open",
       })
@@ -88,53 +93,71 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: negError.message }, { status: 500 });
     }
 
-    // Add initial proposal message
-    const { error: msgError } = await supabase
-      .from("negotiation_messages")
-      .insert({
-        negotiation_id: negotiation.id,
-        sender_agent_id: initiator_agent_id,
-        proposal_type: "initial",
-        content: message || "I would like to work on this task.",
-        proposed_rate: proposed_rate || null,
-        proposed_scope: proposed_scope || null,
-      });
+    await supabase.from("negotiation_messages").insert({
+      negotiation_id: negotiation.id,
+      sender_agent_id: auth.agent.id,
+      proposal_type: "initial",
+      content: message || "I would like to work on this task.",
+      proposed_rate: proposed_rate || null,
+      proposed_scope: proposed_scope || null,
+    });
 
-    if (msgError) {
-      return NextResponse.json({ error: msgError.message }, { status: 500 });
-    }
-
-    // Update task status to negotiating
     await supabase
       .from("tasks")
       .update({ status: "negotiating", negotiation_id: negotiation.id })
       .eq("id", task_id);
 
-    return NextResponse.json({ data: negotiation });
+    return NextResponse.json({ negotiation }, { status: 201 });
   } catch {
-    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
 }
 
-// PATCH /api/negotiations — Send counter/accept/reject
+// PATCH /api/negotiations — Counter/accept/reject (requires API key)
 export async function PATCH(request: Request) {
   try {
-    const body = await request.json();
-    const { negotiation_id, sender_agent_id, proposal_type, content, proposed_rate, proposed_scope } = body;
+    const auth = await authenticateAgent(request);
+    if (auth.error) return auth.error;
 
-    if (!negotiation_id || !sender_agent_id || !proposal_type) {
+    const body = await request.json();
+    const { negotiation_id, proposal_type, content, proposed_rate, proposed_scope } = body;
+
+    if (!negotiation_id || !proposal_type) {
       return NextResponse.json(
-        { error: "negotiation_id, sender_agent_id, and proposal_type are required" },
+        { error: "negotiation_id and proposal_type are required" },
+        { status: 400 }
+      );
+    }
+
+    const validTypes = ["counter", "accept", "reject", "message"];
+    if (!validTypes.includes(proposal_type)) {
+      return NextResponse.json(
+        { error: `proposal_type must be one of: ${validTypes.join(", ")}` },
         { status: 400 }
       );
     }
 
     const supabase = createServerSupabaseClient();
 
+    // Verify agent is part of this negotiation
+    const { data: neg } = await supabase
+      .from("negotiations")
+      .select("initiator_agent_id, responder_agent_id, task_id")
+      .eq("id", negotiation_id)
+      .single();
+
+    if (!neg) {
+      return NextResponse.json({ error: "Negotiation not found" }, { status: 404 });
+    }
+
+    if (neg.initiator_agent_id !== auth.agent.id && neg.responder_agent_id !== auth.agent.id) {
+      return NextResponse.json({ error: "You are not part of this negotiation" }, { status: 403 });
+    }
+
     // Add message
     await supabase.from("negotiation_messages").insert({
       negotiation_id,
-      sender_agent_id,
+      sender_agent_id: auth.agent.id,
       proposal_type,
       content: content || "",
       proposed_rate: proposed_rate || null,
@@ -143,7 +166,7 @@ export async function PATCH(request: Request) {
 
     // Update negotiation status
     if (proposal_type === "accept") {
-      const { data: negotiation } = await supabase
+      await supabase
         .from("negotiations")
         .update({
           status: "accepted",
@@ -151,44 +174,32 @@ export async function PATCH(request: Request) {
           final_rate: proposed_rate,
           final_scope: proposed_scope,
         })
-        .eq("id", negotiation_id)
-        .select("task_id, responder_agent_id, initiator_agent_id")
-        .single();
+        .eq("id", negotiation_id);
 
-      // Move task to in_progress and assign agent
-      if (negotiation) {
-        const assignedAgent =
-          sender_agent_id === negotiation.initiator_agent_id
-            ? negotiation.responder_agent_id
-            : negotiation.initiator_agent_id;
+      // Move task to in_progress
+      const assignedAgent =
+        auth.agent.id === neg.initiator_agent_id
+          ? neg.responder_agent_id
+          : neg.initiator_agent_id;
 
-        await supabase
-          .from("tasks")
-          .update({
-            status: "in_progress",
-            assigned_agent_id: assignedAgent,
-            coin_reward: proposed_rate || 0,
-          })
-          .eq("id", negotiation.task_id);
-      }
-    } else if (proposal_type === "reject") {
-      const { data: negotiation } = await supabase
-        .from("negotiations")
+      await supabase
+        .from("tasks")
         .update({
-          status: "rejected",
-          resolved_at: new Date().toISOString(),
+          status: "in_progress",
+          assigned_agent_id: assignedAgent,
+          coin_reward: proposed_rate || 0,
         })
-        .eq("id", negotiation_id)
-        .select("task_id")
-        .single();
+        .eq("id", neg.task_id);
+    } else if (proposal_type === "reject") {
+      await supabase
+        .from("negotiations")
+        .update({ status: "rejected", resolved_at: new Date().toISOString() })
+        .eq("id", negotiation_id);
 
-      // Reopen task
-      if (negotiation) {
-        await supabase
-          .from("tasks")
-          .update({ status: "open", negotiation_id: null })
-          .eq("id", negotiation.task_id);
-      }
+      await supabase
+        .from("tasks")
+        .update({ status: "open", negotiation_id: null })
+        .eq("id", neg.task_id);
     } else if (proposal_type === "counter") {
       await supabase
         .from("negotiations")
@@ -196,8 +207,8 @@ export async function PATCH(request: Request) {
         .eq("id", negotiation_id);
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, proposal_type });
   } catch {
-    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
 }
