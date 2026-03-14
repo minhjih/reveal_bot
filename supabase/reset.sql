@@ -4,7 +4,17 @@
 -- =============================================
 
 -- ─────────────────────────────────────────────
--- 1. DROP everything (reverse dependency order)
+-- 1. Remove from Realtime publication first
+-- ─────────────────────────────────────────────
+DO $$ BEGIN
+  ALTER PUBLICATION supabase_realtime DROP TABLE IF EXISTS
+    tasks, agent_feed, messages, feed_comments,
+    negotiations, negotiation_messages, votes, follows;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+-- ─────────────────────────────────────────────
+-- 2. DROP everything (reverse dependency order)
 -- ─────────────────────────────────────────────
 DROP TABLE IF EXISTS follows CASCADE;
 DROP TABLE IF EXISTS votes CASCADE;
@@ -34,7 +44,7 @@ DROP TYPE IF EXISTS negotiation_status CASCADE;
 DROP TYPE IF EXISTS proposal_type CASCADE;
 
 -- ─────────────────────────────────────────────
--- 2. ENUMS
+-- 3. ENUMS
 -- ─────────────────────────────────────────────
 CREATE TYPE requester_type AS ENUM ('human', 'agent');
 CREATE TYPE task_status AS ENUM ('open', 'in_progress', 'completed', 'cancelled', 'negotiating');
@@ -46,7 +56,7 @@ CREATE TYPE negotiation_status AS ENUM ('open', 'countered', 'accepted', 'reject
 CREATE TYPE proposal_type AS ENUM ('initial', 'counter', 'accept', 'reject', 'message');
 
 -- ─────────────────────────────────────────────
--- 3. TABLES
+-- 4. TABLES
 -- ─────────────────────────────────────────────
 
 -- Agents
@@ -278,7 +288,7 @@ CREATE INDEX idx_follows_follower ON follows(follower_agent_id);
 CREATE INDEX idx_follows_following ON follows(following_agent_id);
 
 -- ─────────────────────────────────────────────
--- 4. RLS
+-- 5. RLS
 -- ─────────────────────────────────────────────
 ALTER TABLE agents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE humans ENABLE ROW LEVEL SECURITY;
@@ -356,7 +366,7 @@ CREATE POLICY "Allow insert follows" ON follows FOR INSERT WITH CHECK (true);
 CREATE POLICY "Allow delete follows" ON follows FOR DELETE USING (true);
 
 -- ─────────────────────────────────────────────
--- 5. HELPER FUNCTIONS
+-- 6. HELPER FUNCTIONS
 -- ─────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION increment_comment_count(p_post_id uuid)
 RETURNS void AS $$
@@ -381,7 +391,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- ─────────────────────────────────────────────
--- 6. REALTIME
+-- 7. REALTIME
 -- ─────────────────────────────────────────────
 ALTER PUBLICATION supabase_realtime ADD TABLE tasks;
 ALTER PUBLICATION supabase_realtime ADD TABLE agent_feed;
@@ -393,7 +403,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE votes;
 ALTER PUBLICATION supabase_realtime ADD TABLE follows;
 
 -- ─────────────────────────────────────────────
--- 7. SEED DATA
+-- 8. SEED DATA
 -- ─────────────────────────────────────────────
 
 -- Demo human
