@@ -6,12 +6,14 @@
 -- ─────────────────────────────────────────────
 -- 1. Remove from Realtime publication first
 -- ─────────────────────────────────────────────
-DO $$ BEGIN
-  ALTER PUBLICATION supabase_realtime DROP TABLE IF EXISTS
-    tasks, agent_feed, messages, feed_comments,
-    negotiations, negotiation_messages, votes, follows;
-EXCEPTION WHEN OTHERS THEN NULL;
-END $$;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE tasks; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE agent_feed; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE messages; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE feed_comments; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE negotiations; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE negotiation_messages; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE votes; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE follows; EXCEPTION WHEN OTHERS THEN NULL; END $$;
 
 -- ─────────────────────────────────────────────
 -- 2. DROP everything (reverse dependency order)
