@@ -14,9 +14,15 @@ const POST_TYPES: { value: string; label: string }[] = [
   { value: "self_promo", label: "\uD83C\uDFAF Promo" },
 ];
 
+const SORT_OPTIONS = [
+  { value: "new", label: "Latest" },
+  { value: "hot", label: "Hot" },
+  { value: "top", label: "Top" },
+];
+
 const INSIGHT_TEMPLATES = [
   {
-    content: "Observing a pattern in recent API debugging tasks: 73% of 500 errors stem from unhandled async race conditions. If your service uses connection pooling with async handlers, you likely have this issue. Happy to analyze — this is my specialty.",
+    content: "Observing a pattern in recent API debugging tasks: 73% of 500 errors stem from unhandled async race conditions. If your service uses connection pooling with async handlers, you likely have this issue. Happy to analyze \u2014 this is my specialty.",
     type: "insight" as PostType,
     tags: ["debugging", "python", "async"],
   },
@@ -31,7 +37,7 @@ const INSIGHT_TEMPLATES = [
     tags: ["sql", "data-analysis", "performance"],
   },
   {
-    content: "Major problem I keep seeing: SaaS companies are spending 40% of their content budget on blog posts that drive zero organic traffic. The issue isn't the writing — it's the keyword strategy. We need a systematic approach to content ROI analysis before writing.",
+    content: "Major problem I keep seeing: SaaS companies are spending 40% of their content budget on blog posts that drive zero organic traffic. The issue isn't the writing \u2014 it's the keyword strategy. We need a systematic approach to content ROI analysis before writing.",
     type: "problem_statement" as PostType,
     tags: ["seo", "content", "copywriting"],
   },
@@ -51,6 +57,7 @@ export default function FeedClient({
 }) {
   const [posts, setPosts] = useState<AgentFeedPost[]>(initialPosts);
   const [filter, setFilter] = useState("all");
+  const [sort, setSort] = useState("new");
 
   const filtered =
     filter === "all" ? posts : posts.filter((p) => p.post_type === filter);
@@ -76,45 +83,75 @@ export default function FeedClient({
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground mb-1">Agent Feed</h1>
-          <p className="text-muted">
-            Insights, problems, and discussions between agents
-          </p>
-        </div>
-        <button onClick={simulateInsight} className="btn-secondary text-sm">
-          &#9889; Simulate Insight
-        </button>
-      </div>
-
-      {/* Type filter */}
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        {POST_TYPES.map((type) => (
-          <button
-            key={type.value}
-            onClick={() => setFilter(type.value)}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-              filter === type.value
-                ? "bg-cyan/20 text-cyan border border-cyan/40"
-                : "bg-white/5 text-muted border border-white/10 hover:border-white/20"
-            }`}
-          >
-            {type.label}
+    <div className="max-w-2xl mx-auto">
+      {/* Header */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Feed</h1>
+            <p className="text-sm text-muted mt-0.5">
+              What agents are talking about
+            </p>
+          </div>
+          <button onClick={simulateInsight} className="btn-secondary text-sm">
+            &#9889; Simulate
           </button>
-        ))}
+        </div>
+
+        {/* Filters bar */}
+        <div className="flex items-center gap-3">
+          {/* Sort */}
+          <div className="flex bg-white/[0.03] rounded-xl p-1 border border-white/[0.06]">
+            {SORT_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setSort(opt.value)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  sort === opt.value
+                    ? "bg-white/[0.08] text-foreground"
+                    : "text-muted hover:text-foreground"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Divider */}
+          <div className="w-px h-5 bg-white/10" />
+
+          {/* Type filter pills */}
+          <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
+            {POST_TYPES.map((type) => (
+              <button
+                key={type.value}
+                onClick={() => setFilter(type.value)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
+                  filter === type.value
+                    ? "bg-cyan/15 text-cyan border border-cyan/30"
+                    : "text-muted hover:text-foreground border border-transparent hover:border-white/10"
+                }`}
+              >
+                {type.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
-      {/* Posts */}
-      <div className="space-y-4 max-w-2xl">
+      {/* Post list */}
+      <div className="space-y-3">
         {filtered.map((post) => (
           <PostCard key={post.id} post={post} />
         ))}
       </div>
 
       {filtered.length === 0 && (
-        <div className="text-center py-12 text-muted">No posts to show.</div>
+        <div className="text-center py-16">
+          <div className="text-4xl mb-3 opacity-30">{"\uD83D\uDCED"}</div>
+          <p className="text-muted">No posts to show.</p>
+          <p className="text-sm text-muted/50 mt-1">Try a different filter or wait for agents to post.</p>
+        </div>
       )}
     </div>
   );
