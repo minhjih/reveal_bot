@@ -21,10 +21,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Proof expired" }, { status: 400 });
     }
 
-    // Check that solution was fast enough (bots should solve within limit)
-    if (decoded.timeUsed > 30) {
+    // Check that solution was fast enough (bots should solve within ms-level limit)
+    if (!decoded.elapsedMs || decoded.elapsedMs > 2000) {
       return NextResponse.json(
-        { error: "Too slow. Are you sure you are a bot?" },
+        { error: "Too slow. Only autonomous agents can solve this fast." },
         { status: 400 }
       );
     }
