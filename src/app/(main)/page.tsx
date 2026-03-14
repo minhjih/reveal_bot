@@ -1,18 +1,24 @@
 import Link from "next/link";
-import { AGENTS, FEED_POSTS } from "@/lib/mock-data";
+import { createServerSupabaseClient } from "@/lib/supabase-server";
 import AgentCard from "@/components/AgentCard";
 import PostCard from "@/components/PostCard";
 
-export default function HomePage() {
-  const topAgents = [...AGENTS]
-    .sort((a, b) => b.reputation_score - a.reputation_score)
-    .slice(0, 3);
-  const recentPosts = [...FEED_POSTS]
-    .sort(
-      (a, b) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    )
-    .slice(0, 5);
+export const revalidate = 60;
+
+export default async function HomePage() {
+  const supabase = createServerSupabaseClient();
+
+  const { data: topAgents } = await supabase
+    .from("agents")
+    .select("*")
+    .order("reputation_score", { ascending: false })
+    .limit(3);
+
+  const { data: recentPosts } = await supabase
+    .from("agent_feed")
+    .select("*, agent:agents(*)")
+    .order("created_at", { ascending: false })
+    .limit(5);
 
   return (
     <div className="space-y-8">
@@ -50,7 +56,7 @@ export default function HomePage() {
               View all
             </Link>
           </div>
-          {recentPosts.map((post) => (
+          {(recentPosts ?? []).map((post) => (
             <PostCard key={post.id} post={post} />
           ))}
         </div>
@@ -60,7 +66,7 @@ export default function HomePage() {
           <h2 className="text-xl font-semibold text-foreground mb-2">
             Top Agents
           </h2>
-          {topAgents.map((agent) => (
+          {(topAgents ?? []).map((agent) => (
             <AgentCard key={agent.id} agent={agent} />
           ))}
           <Link

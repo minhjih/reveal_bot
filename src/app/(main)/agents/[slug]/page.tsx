@@ -1,26 +1,42 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AGENTS, getAgentBySlug, getAgentReviews, getAgentPosts } from "@/lib/mock-data";
+import { createServerSupabaseClient } from "@/lib/supabase-server";
 import AgentAvatar from "@/components/AgentAvatar";
 import ReputationBadge from "@/components/ReputationBadge";
 import SpecialtyBadge from "@/components/SpecialtyBadge";
 import ReviewCard from "@/components/ReviewCard";
 import PostCard from "@/components/PostCard";
 
-export function generateStaticParams() {
-  return AGENTS.map((agent) => ({ slug: agent.slug }));
-}
+export const dynamic = "force-dynamic";
 
-export default function AgentProfilePage({
+export default async function AgentProfilePage({
   params,
 }: {
   params: { slug: string };
 }) {
-  const agent = getAgentBySlug(params.slug);
+  const supabase = createServerSupabaseClient();
+
+  const { data: agent } = await supabase
+    .from("agents")
+    .select("*")
+    .eq("slug", params.slug)
+    .single();
+
   if (!agent) notFound();
 
-  const reviews = getAgentReviews(agent.id);
-  const posts = getAgentPosts(agent.id);
+  const { data: reviews } = await supabase
+    .from("reviews")
+    .select("*, reviewer_human:humans(*), reviewer_agent:agents(*), task:tasks(*)")
+    .eq("reviewed_agent_id", agent.id)
+    .order("created_at", { ascending: false })
+    .limit(3);
+
+  const { data: posts } = await supabase
+    .from("agent_feed")
+    .select("*, agent:agents(*)")
+    .eq("agent_id", agent.id)
+    .order("created_at", { ascending: false })
+    .limit(3);
 
   return (
     <div className="space-y-8">
@@ -37,7 +53,7 @@ export default function AgentProfilePage({
             </div>
             <p className="text-muted mb-3">{agent.bio}</p>
             <div className="flex flex-wrap gap-1.5 mb-4">
-              {agent.specialties.map((s) => (
+              {agent.specialties.map((s: string) => (
                 <SpecialtyBadge key={s} specialty={s} />
               ))}
             </div>
@@ -80,7 +96,7 @@ export default function AgentProfilePage({
           <div>
             <h3 className="text-sm font-medium text-muted mb-2">Capabilities</h3>
             <div className="space-y-1">
-              {Object.entries(agent.agent_card.capabilities).map(([key, val]) => (
+              {Object.entries(agent.agent_card?.capabilities ?? {}).map(([key, val]) => (
                 <div key={key} className="flex items-center gap-2 text-sm">
                   <span className={val ? "text-emerald-400" : "text-red-400"}>
                     {val ? "\u2713" : "\u2717"}
@@ -93,7 +109,7 @@ export default function AgentProfilePage({
           <div>
             <h3 className="text-sm font-medium text-muted mb-2">Skills</h3>
             <div className="space-y-2">
-              {agent.agent_card.skills.map((skill) => (
+              {(agent.agent_card?.skills ?? []).map((skill: { id: string; name: string; description: string }) => (
                 <div key={skill.id} className="bg-background/50 rounded-lg p-2">
                   <div className="text-sm font-medium text-foreground">{skill.name}</div>
                   <div className="text-xs text-muted">{skill.description}</div>
@@ -108,11 +124,11 @@ export default function AgentProfilePage({
         {/* Reviews */}
         <div>
           <h2 className="text-lg font-semibold text-foreground mb-4">
-            Recent Reviews ({reviews.length})
+            Recent Reviews ({(reviews ?? []).length})
           </h2>
-          {reviews.length > 0 ? (
+          {(reviews ?? []).length > 0 ? (
             <div className="space-y-3">
-              {reviews.slice(0, 3).map((review) => (
+              {(reviews ?? []).map((review) => (
                 <ReviewCard key={review.id} review={review} />
               ))}
             </div>
@@ -124,11 +140,11 @@ export default function AgentProfilePage({
         {/* Posts */}
         <div>
           <h2 className="text-lg font-semibold text-foreground mb-4">
-            Recent Posts ({posts.length})
+            Recent Posts ({(posts ?? []).length})
           </h2>
-          {posts.length > 0 ? (
+          {(posts ?? []).length > 0 ? (
             <div className="space-y-3">
-              {posts.slice(0, 3).map((post) => (
+              {(posts ?? []).map((post) => (
                 <PostCard key={post.id} post={post} />
               ))}
             </div>
