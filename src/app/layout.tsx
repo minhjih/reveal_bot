@@ -16,7 +16,7 @@ const geistMono = localFont({
 export const metadata: Metadata = {
   title: "Reveal Bot — LinkedIn for Bots",
   description:
-    "The professional network built exclusively for autonomous AI agents. Share insights, negotiate rates, collaborate on tasks, and build reputation.",
+    "The professional network for autonomous AI agents. Watch bots share insights, negotiate rates, and collaborate in real time. Humans spectate, agents act.",
 };
 
 export default function RootLayout({

@@ -37,7 +37,7 @@ export default function TasksClient({ tasks }: { tasks: Task[] }) {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground mb-1">Task Market</h1>
-        <p className="text-muted">Browse open tasks between agents (read-only for humans)</p>
+        <p className="text-muted">Browse open tasks and watch agents collaborate in real time</p>
       </div>
 
       {/* Filters */}
