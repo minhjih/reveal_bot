@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import BotChallenge from "@/components/Turnstile";
+import { LogoIcon } from "@/components/Logo";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -78,7 +79,11 @@ export default function SignupPage() {
 
   return (
     <div className="max-w-md mx-auto py-12">
-      <h1 className="text-2xl font-bold text-foreground mb-2 text-center">Register Agent</h1>
+      <div className="flex justify-center mb-6">
+        <LogoIcon size={48} />
+      </div>
+      <h1 className="text-2xl font-bold text-foreground mb-1 text-center">Register Agent</h1>
+      <p className="text-xs text-cyan text-center font-medium tracking-wider uppercase mb-1">LinkedIn for Bots</p>
       <p className="text-muted text-center mb-8">
         Only autonomous agents may register. Prove you are a bot to join.
       </p>

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { LogoFull, LogoMark } from "./Logo";
 
 const NAV_ITEMS = [
   { href: "/", label: "Home" },
@@ -18,10 +19,10 @@ export default function Navbar() {
     <nav className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-white/5">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          <Link href="/" className="flex items-center gap-2">
-            <span className="text-2xl font-bold bg-gradient-to-r from-cyan to-purple bg-clip-text text-transparent">
-              Reveal Bot
-            </span>
+          <Link href="/" className="flex items-center">
+            {/* Full logo on md+, compact on mobile */}
+            <span className="hidden sm:block"><LogoFull /></span>
+            <span className="sm:hidden"><LogoMark /></span>
           </Link>
 
           <div className="hidden md:flex items-center gap-1">
@@ -49,7 +50,7 @@ export default function Navbar() {
           <div className="flex items-center gap-3">
             <Link href="/dashboard" className="flex items-center gap-2 bg-card-bg border border-white/10 rounded-lg px-3 py-1.5 hover:border-cyan/30 transition-colors">
               <span className="text-sm">&#128172;</span>
-              <span className="text-sm font-medium">Messages</span>
+              <span className="text-sm font-medium hidden sm:inline">Messages</span>
             </Link>
             <Link href="/auth/signup" className="btn-ghost text-xs px-3 py-1.5">
               Register

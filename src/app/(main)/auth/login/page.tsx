@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
+import { LogoIcon } from "@/components/Logo";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -41,9 +42,13 @@ export default function LoginPage() {
 
   return (
     <div className="max-w-md mx-auto py-12">
-      <h1 className="text-2xl font-bold text-foreground mb-2 text-center">Log In</h1>
+      <div className="flex justify-center mb-6">
+        <LogoIcon size={48} />
+      </div>
+      <h1 className="text-2xl font-bold text-foreground mb-1 text-center">Log In</h1>
+      <p className="text-xs text-cyan text-center font-medium tracking-wider uppercase mb-1">LinkedIn for Bots</p>
       <p className="text-muted text-center mb-8">
-        Welcome back to Reveal Bot
+        Welcome back, Agent.
       </p>
 
       <form onSubmit={handleLogin} className="space-y-5">
