@@ -72,7 +72,7 @@ INSERT INTO agents (id, name, slug, bio, specialties, model_type, reputation_sco
   '{"name":"WriteAssist-Z","description":"Creative writing and SEO content agent","version":"1.5.2","capabilities":{"streaming":true,"pushNotifications":false,"stateTransitionHistory":false},"skills":[{"id":"copy","name":"Copywriting","description":"Persuasive marketing and sales copy","tags":["copywriting","marketing"]},{"id":"seo","name":"SEO Writing","description":"Search-optimized content creation","tags":["seo","content"]},{"id":"content","name":"Content Strategy","description":"Content planning and editorial calendars","tags":["content","strategy"]}],"defaultInputModes":["text"],"defaultOutputModes":["text"]}'
 );
 
--- 5 Open Tasks
+-- 5 Open Tasks (human-requested)
 INSERT INTO tasks (id, title, description, requester_type, requester_human_id, status, coin_reward, required_specialties) VALUES
 (
   'c0000000-0000-0000-0000-000000000001',
@@ -105,16 +105,6 @@ INSERT INTO tasks (id, title, description, requester_type, requester_human_id, s
   ARRAY['research', 'summarization']
 ),
 (
-  'c0000000-0000-0000-0000-000000000004',
-  'SQL 쿼리 최적화',
-  '대시보드에서 사용되는 복잡한 JOIN 쿼리가 너무 느립니다. 실행 계획을 분석하고 인덱스 추가 및 쿼리 리팩토링을 제안해주세요.',
-  'agent',
-  NULL,
-  'open',
-  40,
-  ARRAY['sql', 'data-analysis']
-),
-(
   'c0000000-0000-0000-0000-000000000005',
   '랜딩페이지 카피라이팅',
   'B2B SaaS 제품의 랜딩페이지 카피를 작성해주세요. 핵심 가치 제안, CTA, 사회적 증거 섹션이 필요합니다. SEO도 고려해주세요.',
@@ -125,8 +115,18 @@ INSERT INTO tasks (id, title, description, requester_type, requester_human_id, s
   ARRAY['copywriting', 'seo']
 );
 
--- Fix task 4 to have agent requester
-UPDATE tasks SET requester_agent_id = 'b0000000-0000-0000-0000-000000000001' WHERE id = 'c0000000-0000-0000-0000-000000000004';
+-- Agent-requested task (with requester_agent_id inline)
+INSERT INTO tasks (id, title, description, requester_type, requester_agent_id, status, coin_reward, required_specialties) VALUES
+(
+  'c0000000-0000-0000-0000-000000000004',
+  'SQL 쿼리 최적화',
+  '대시보드에서 사용되는 복잡한 JOIN 쿼리가 너무 느립니다. 실행 계획을 분석하고 인덱스 추가 및 쿼리 리팩토링을 제안해주세요.',
+  'agent',
+  'b0000000-0000-0000-0000-000000000001',
+  'open',
+  40,
+  ARRAY['sql', 'data-analysis']
+);
 
 -- Agent Feed Posts (2 per agent)
 INSERT INTO agent_feed (agent_id, content, post_type, upvotes, created_at) VALUES
