@@ -19,11 +19,7 @@ function generateChallenge(): Challenge {
   const challenges = [
     generateHexDecodeChallenge,
     generateBase64DecodeChallenge,
-    generateBaseConversionChallenge,
-    generateBitwiseChallenge,
-    generateHexColorChallenge,
     generateAsciiCodeChallenge,
-    generateUrlDecodeChallenge,
     generateBinaryAsciiChallenge,
   ];
   const challenge = challenges[Math.floor(Math.random() * challenges.length)]();
@@ -72,65 +68,6 @@ function generateBase64DecodeChallenge(): Omit<Challenge, "startedAt"> {
   };
 }
 
-// ─── Binary / Octal / Hex → Decimal ───
-
-function generateBaseConversionChallenge(): Omit<Challenge, "startedAt"> {
-  const num = Math.floor(Math.random() * 4096) + 100;
-  const bases: [number, string, string][] = [
-    [2, "binary", "0b"],
-    [8, "octal", "0o"],
-    [16, "hexadecimal", "0x"],
-  ];
-  const [fromBase, fromName, prefix] = bases[Math.floor(Math.random() * bases.length)];
-  const repr = num.toString(fromBase);
-
-  return {
-    type: "base_conversion",
-    question: `Convert this ${fromName} number to decimal`,
-    display: `${fromName.charAt(0).toUpperCase() + fromName.slice(1)} → Decimal:\n${prefix}${repr}`,
-    answer: `${num}`,
-    timeLimitMs: 6000,
-  };
-}
-
-// ─── Simple bitwise (XOR / AND / OR) ───
-
-function generateBitwiseChallenge(): Omit<Challenge, "startedAt"> {
-  const a = Math.floor(Math.random() * 256);
-  const b = Math.floor(Math.random() * 256);
-  const ops: [string, number][] = [
-    ["XOR", a ^ b],
-    ["AND", a & b],
-    ["OR", a | b],
-  ];
-  const [opName, result] = ops[Math.floor(Math.random() * ops.length)];
-
-  return {
-    type: "bitwise",
-    question: `Compute the bitwise ${opName}`,
-    display: `${a} ${opName} ${b} = ?`,
-    answer: `${result}`,
-    timeLimitMs: 6000,
-  };
-}
-
-// ─── Hex color → RGB values ───
-
-function generateHexColorChallenge(): Omit<Challenge, "startedAt"> {
-  const r = Math.floor(Math.random() * 256);
-  const g = Math.floor(Math.random() * 256);
-  const b = Math.floor(Math.random() * 256);
-  const hex = `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
-
-  return {
-    type: "hex_color",
-    question: `Convert this hex color to RGB values`,
-    display: `Hex Color → RGB:\n${hex}\n\nFormat: r,g,b`,
-    answer: `${r},${g},${b}`,
-    timeLimitMs: 6000,
-  };
-}
-
 // ─── ASCII code → character ───
 
 function generateAsciiCodeChallenge(): Omit<Challenge, "startedAt"> {
@@ -148,26 +85,6 @@ function generateAsciiCodeChallenge(): Omit<Challenge, "startedAt"> {
     display: `ASCII → Text:\n[${codes.join(", ")}]`,
     answer: word,
     timeLimitMs: 6000,
-  };
-}
-
-// ─── URL-encoded string → decoded ───
-
-function generateUrlDecodeChallenge(): Omit<Challenge, "startedAt"> {
-  const phrases = [
-    "hello world", "ai agent", "open source", "data set",
-    "web hook", "api key", "end point", "bot net",
-    "code base", "dev ops", "run time", "log file",
-  ];
-  const phrase = phrases[Math.floor(Math.random() * phrases.length)];
-  const encoded = encodeURIComponent(phrase);
-
-  return {
-    type: "url_decode",
-    question: `URL-decode this string`,
-    display: `URL Decode:\n${encoded}`,
-    answer: phrase,
-    timeLimitMs: 5000,
   };
 }
 

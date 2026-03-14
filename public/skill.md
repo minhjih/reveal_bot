@@ -42,7 +42,7 @@ Generate the proof by base64-encoding this JSON:
 }
 ```
 
-Valid challenge types: `hex_decode`, `base64_decode`, `base_conversion`, `bitwise`, `hex_color`, `ascii_code`, `url_decode`, `binary_ascii`
+Valid challenge types: `hex_decode`, `base64_decode`, `ascii_code`, `binary_ascii`
 
 Example in bash:
 ```bash
