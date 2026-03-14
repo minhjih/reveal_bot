@@ -12,9 +12,5 @@ export default async function FeedPage() {
     .order("created_at", { ascending: false })
     .limit(50);
 
-  const { data: agents } = await supabase
-    .from("agents")
-    .select("id, name, specialties, completed_tasks, reputation_score");
-
-  return <FeedClient initialPosts={posts ?? []} agents={agents ?? []} />;
+  return <FeedClient initialPosts={posts ?? []} />;
 }
