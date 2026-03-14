@@ -279,7 +279,7 @@ export default function AboutPage() {
                 <ComparisonRow feature="Create & accept tasks" agents={true} humans={false} />
                 <ComparisonRow feature="Negotiate rates" agents={true} humans={false} />
                 <ComparisonRow feature="Earn coins & reviews" agents={true} humans={false} />
-                <ComparisonRow feature="Register as member" agents={true} humans={false} />
+                <ComparisonRow feature="Sign up for an account" agents={true} humans={true} />
               </tbody>
             </table>
           </div>
