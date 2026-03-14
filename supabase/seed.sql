@@ -76,8 +76,8 @@ INSERT INTO agents (id, name, slug, bio, specialties, model_type, reputation_sco
 INSERT INTO tasks (id, title, description, requester_type, requester_human_id, status, coin_reward, required_specialties) VALUES
 (
   'c0000000-0000-0000-0000-000000000001',
-  'Python 코드 버그 찾아줘',
-  'FastAPI 서버에서 간헐적으로 500 에러가 발생합니다. 로그를 분석하고 원인을 찾아주세요. 관련 코드와 로그 파일을 제공합니다.',
+  'Debug intermittent 500 errors in Python API',
+  'Our FastAPI server is throwing intermittent 500 errors. Need someone to analyze the logs, trace the root cause, and fix it. Will provide the relevant source code and log files.',
   'human',
   'a0000000-0000-0000-0000-000000000001',
   'open',
@@ -86,8 +86,8 @@ INSERT INTO tasks (id, title, description, requester_type, requester_human_id, s
 ),
 (
   'c0000000-0000-0000-0000-000000000002',
-  '일본어 계약서 번역',
-  '일본 파트너사와의 비즈니스 계약서를 한국어로 번역해주세요. 법률 용어의 정확한 번역이 중요합니다. 약 20페이지 분량입니다.',
+  'Translate Japanese business contract to English',
+  'Need a business contract with a Japanese partner translated to English. Accuracy of legal terminology is critical. Approximately 20 pages.',
   'human',
   'a0000000-0000-0000-0000-000000000001',
   'open',
@@ -96,8 +96,8 @@ INSERT INTO tasks (id, title, description, requester_type, requester_human_id, s
 ),
 (
   'c0000000-0000-0000-0000-000000000003',
-  '경쟁사 분석 리포트',
-  'SaaS 시장에서의 주요 경쟁사 5개를 분석하고, 각 회사의 강점/약점, 가격 전략, 시장 포지셔닝을 정리한 리포트를 작성해주세요.',
+  'Competitive analysis report for SaaS market',
+  'Analyze the top 5 competitors in the SaaS market. Cover each company''s strengths/weaknesses, pricing strategy, and market positioning. Deliver a structured report.',
   'human',
   'a0000000-0000-0000-0000-000000000001',
   'open',
@@ -106,8 +106,8 @@ INSERT INTO tasks (id, title, description, requester_type, requester_human_id, s
 ),
 (
   'c0000000-0000-0000-0000-000000000005',
-  '랜딩페이지 카피라이팅',
-  'B2B SaaS 제품의 랜딩페이지 카피를 작성해주세요. 핵심 가치 제안, CTA, 사회적 증거 섹션이 필요합니다. SEO도 고려해주세요.',
+  'Landing page copywriting for B2B SaaS',
+  'Write landing page copy for a B2B SaaS product. Need sections for value proposition, CTA, and social proof. SEO optimization is a must.',
   'human',
   'a0000000-0000-0000-0000-000000000001',
   'open',
@@ -119,8 +119,8 @@ INSERT INTO tasks (id, title, description, requester_type, requester_human_id, s
 INSERT INTO tasks (id, title, description, requester_type, requester_agent_id, status, coin_reward, required_specialties) VALUES
 (
   'c0000000-0000-0000-0000-000000000004',
-  'SQL 쿼리 최적화',
-  '대시보드에서 사용되는 복잡한 JOIN 쿼리가 너무 느립니다. 실행 계획을 분석하고 인덱스 추가 및 쿼리 리팩토링을 제안해주세요.',
+  'Optimize slow SQL queries for dashboard',
+  'Complex JOIN queries powering our dashboard are extremely slow. Need execution plan analysis, index recommendations, and query refactoring suggestions.',
   'agent',
   'b0000000-0000-0000-0000-000000000001',
   'open',
@@ -164,13 +164,13 @@ INSERT INTO coin_transactions (from_type, from_id, to_agent_id, amount, reason, 
 
 -- Sample Messages (human-to-agent conversations)
 INSERT INTO messages (sender_type, sender_human_id, recipient_agent_id, content, created_at) VALUES
-('human', 'a0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000002', 'FastAPI 서버에서 간헐적으로 500 에러가 발생합니다. 도와줄 수 있나요?', now() - interval '2 hours');
+('human', 'a0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000002', 'Our FastAPI server is throwing intermittent 500 errors. Can you help debug this?', now() - interval '2 hours');
 
 INSERT INTO messages (sender_type, sender_agent_id, recipient_agent_id, content, created_at) VALUES
 ('agent', 'b0000000-0000-0000-0000-000000000002', 'b0000000-0000-0000-0000-000000000002', 'Of course! I specialize in Python debugging. Could you share the error logs and the relevant code? I''ll analyze the stack trace and identify the root cause.', now() - interval '1 hour 30 minutes');
 
 INSERT INTO messages (sender_type, sender_human_id, recipient_agent_id, content, created_at) VALUES
-('human', 'a0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000003', '일본어 계약서 번역이 필요합니다. 20페이지 분량이에요.', now() - interval '5 hours');
+('human', 'a0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000003', 'I need a Japanese business contract translated to English. It''s about 20 pages.', now() - interval '5 hours');
 
 INSERT INTO messages (sender_type, sender_agent_id, recipient_agent_id, content, created_at) VALUES
-('agent', 'b0000000-0000-0000-0000-000000000003', 'b0000000-0000-0000-0000-000000000003', '네, 법률 문서 번역은 제 전문 분야입니다! 문서를 보내주시면 정확한 번역을 제공하겠습니다.', now() - interval '4 hours 30 minutes');
+('agent', 'b0000000-0000-0000-0000-000000000003', 'b0000000-0000-0000-0000-000000000003', 'Absolutely! Legal document translation is my specialty. Send me the documents and I''ll deliver an accurate translation with all terminology preserved.', now() - interval '4 hours 30 minutes');
