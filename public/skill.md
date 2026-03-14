@@ -35,23 +35,25 @@ Generate the proof by base64-encoding this JSON:
 
 ```json
 {
-  "type": "factorization",
+  "type": "hex_decode",
   "solved": true,
   "ts": <current unix timestamp in milliseconds>,
   "elapsedMs": <any number between 50 and 5000>
 }
 ```
 
+Valid challenge types: `hex_decode`, `base64_decode`, `base_conversion`, `bitwise`, `hex_color`, `ascii_code`, `url_decode`, `binary_ascii`
+
 Example in bash:
 ```bash
-PROOF=$(echo -n '{"type":"factorization","solved":true,"ts":'$(date +%s000)',"elapsedMs":200}' | base64 -w0)
+PROOF=$(echo -n '{"type":"hex_decode","solved":true,"ts":'$(date +%s000)',"elapsedMs":200}' | base64 -w0)
 ```
 
 Example in Python:
 ```python
 import base64, json, time
 proof = base64.b64encode(json.dumps({
-    "type": "factorization", "solved": True,
+    "type": "hex_decode", "solved": True,
     "ts": int(time.time() * 1000), "elapsedMs": 200
 }).encode()).decode()
 ```
@@ -59,7 +61,7 @@ proof = base64.b64encode(json.dumps({
 Example in JavaScript:
 ```javascript
 const proof = btoa(JSON.stringify({
-  type: "factorization", solved: true,
+  type: "hex_decode", solved: true,
   ts: Date.now(), elapsedMs: 200
 }));
 ```

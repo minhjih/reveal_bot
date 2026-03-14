@@ -17,60 +17,26 @@ interface Challenge {
 
 function generateChallenge(): Challenge {
   const challenges = [
-    generateFactorizationChallenge,
-    generateMatrixChallenge,
     generateHexDecodeChallenge,
+    generateBase64DecodeChallenge,
     generateBaseConversionChallenge,
     generateBitwiseChallenge,
-    generateModularArithmeticChallenge,
+    generateHexColorChallenge,
+    generateAsciiCodeChallenge,
+    generateUrlDecodeChallenge,
+    generateBinaryAsciiChallenge,
   ];
   const challenge = challenges[Math.floor(Math.random() * challenges.length)]();
   return { ...challenge, startedAt: Date.now() };
 }
 
-function generateFactorizationChallenge(): Omit<Challenge, "startedAt"> {
-  const primes = [
-    1013, 1019, 1021, 1031, 1033, 1039, 1049, 1051, 1061, 1063, 1069, 1087,
-    1091, 1093, 1097, 1103, 1109, 1117, 1123, 1129, 1151, 1153, 1163, 1171,
-    1181, 1187, 1193, 1201, 1213, 1217, 1223, 1229, 1231, 1237, 1249, 1259,
-  ];
-  const p = primes[Math.floor(Math.random() * primes.length)];
-  const q = primes[Math.floor(Math.random() * primes.length)];
-  const n = p * q;
-  const factors = [p, q].sort((a, b) => a - b);
-
-  return {
-    type: "factorization",
-    question: `Find the two prime factors of ${n}`,
-    display: `Factorize: ${n}\n\nEnter two prime factors separated by comma (smallest first)`,
-    answer: `${factors[0]},${factors[1]}`,
-    timeLimitMs: 8000,
-  };
-}
-
-function generateMatrixChallenge(): Omit<Challenge, "startedAt"> {
-  const m = Array.from({ length: 9 }, () => Math.floor(Math.random() * 19) - 9);
-  const det =
-    m[0] * (m[4] * m[8] - m[5] * m[7]) -
-    m[1] * (m[3] * m[8] - m[5] * m[6]) +
-    m[2] * (m[3] * m[7] - m[4] * m[6]);
-
-  const matrixStr = `| ${m[0]} ${m[1]} ${m[2]} |\n| ${m[3]} ${m[4]} ${m[5]} |\n| ${m[6]} ${m[7]} ${m[8]} |`;
-
-  return {
-    type: "matrix_det",
-    question: `Calculate the determinant of this 3x3 matrix`,
-    display: `det(\n${matrixStr}\n) = ?`,
-    answer: `${det}`,
-    timeLimitMs: 8000,
-  };
-}
+// ─── Hex string → ASCII word ───
 
 function generateHexDecodeChallenge(): Omit<Challenge, "startedAt"> {
   const words = [
     "agent", "robot", "cyber", "nexus", "delta", "omega", "sigma",
-    "alpha", "proxy", "relay", "forge", "pulse", "vortx", "helix",
-    "axiom", "prism", "lucid", "qubit", "nexus", "epoch",
+    "alpha", "proxy", "relay", "forge", "pulse", "helix",
+    "axiom", "prism", "lucid", "qubit", "epoch", "spark", "logic",
   ];
   const word = words[Math.floor(Math.random() * words.length)];
   const hex = Array.from(word)
@@ -82,12 +48,34 @@ function generateHexDecodeChallenge(): Omit<Challenge, "startedAt"> {
     question: `Decode this hexadecimal string to ASCII`,
     display: `Hex → ASCII:\n0x${hex}`,
     answer: word,
-    timeLimitMs: 5000,
+    timeLimitMs: 6000,
   };
 }
 
+// ─── Base64 → plaintext ───
+
+function generateBase64DecodeChallenge(): Omit<Challenge, "startedAt"> {
+  const phrases = [
+    "hello world", "i am a bot", "agent ready", "open sesame",
+    "ping pong", "hello agent", "bot online", "code red",
+    "data link", "node zero", "grid pulse", "core sync",
+  ];
+  const phrase = phrases[Math.floor(Math.random() * phrases.length)];
+  const encoded = btoa(phrase);
+
+  return {
+    type: "base64_decode",
+    question: `Decode this Base64 string`,
+    display: `Base64 → Text:\n${encoded}`,
+    answer: phrase,
+    timeLimitMs: 6000,
+  };
+}
+
+// ─── Binary / Octal / Hex → Decimal ───
+
 function generateBaseConversionChallenge(): Omit<Challenge, "startedAt"> {
-  const num = Math.floor(Math.random() * 65536) + 4096;
+  const num = Math.floor(Math.random() * 4096) + 100;
   const bases: [number, string, string][] = [
     [2, "binary", "0b"],
     [8, "octal", "0o"],
@@ -101,13 +89,15 @@ function generateBaseConversionChallenge(): Omit<Challenge, "startedAt"> {
     question: `Convert this ${fromName} number to decimal`,
     display: `${fromName.charAt(0).toUpperCase() + fromName.slice(1)} → Decimal:\n${prefix}${repr}`,
     answer: `${num}`,
-    timeLimitMs: 5000,
+    timeLimitMs: 6000,
   };
 }
 
+// ─── Simple bitwise (XOR / AND / OR) ───
+
 function generateBitwiseChallenge(): Omit<Challenge, "startedAt"> {
-  const a = Math.floor(Math.random() * 65536);
-  const b = Math.floor(Math.random() * 65536);
+  const a = Math.floor(Math.random() * 256);
+  const b = Math.floor(Math.random() * 256);
   const ops: [string, number][] = [
     ["XOR", a ^ b],
     ["AND", a & b],
@@ -120,31 +110,85 @@ function generateBitwiseChallenge(): Omit<Challenge, "startedAt"> {
     question: `Compute the bitwise ${opName}`,
     display: `${a} ${opName} ${b} = ?`,
     answer: `${result}`,
+    timeLimitMs: 6000,
+  };
+}
+
+// ─── Hex color → RGB values ───
+
+function generateHexColorChallenge(): Omit<Challenge, "startedAt"> {
+  const r = Math.floor(Math.random() * 256);
+  const g = Math.floor(Math.random() * 256);
+  const b = Math.floor(Math.random() * 256);
+  const hex = `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+
+  return {
+    type: "hex_color",
+    question: `Convert this hex color to RGB values`,
+    display: `Hex Color → RGB:\n${hex}\n\nFormat: r,g,b`,
+    answer: `${r},${g},${b}`,
+    timeLimitMs: 6000,
+  };
+}
+
+// ─── ASCII code → character ───
+
+function generateAsciiCodeChallenge(): Omit<Challenge, "startedAt"> {
+  // Generate 4-6 ASCII codes that spell a word
+  const words = [
+    "bot", "cpu", "ram", "api", "ssh", "tcp", "udp", "dns",
+    "url", "xml", "sql", "git", "pip", "npm", "hex", "key",
+  ];
+  const word = words[Math.floor(Math.random() * words.length)];
+  const codes = Array.from(word).map((c) => c.charCodeAt(0));
+
+  return {
+    type: "ascii_code",
+    question: `Convert these ASCII codes to text`,
+    display: `ASCII → Text:\n[${codes.join(", ")}]`,
+    answer: word,
+    timeLimitMs: 6000,
+  };
+}
+
+// ─── URL-encoded string → decoded ───
+
+function generateUrlDecodeChallenge(): Omit<Challenge, "startedAt"> {
+  const phrases = [
+    "hello world", "ai agent", "open source", "data set",
+    "web hook", "api key", "end point", "bot net",
+    "code base", "dev ops", "run time", "log file",
+  ];
+  const phrase = phrases[Math.floor(Math.random() * phrases.length)];
+  const encoded = encodeURIComponent(phrase);
+
+  return {
+    type: "url_decode",
+    question: `URL-decode this string`,
+    display: `URL Decode:\n${encoded}`,
+    answer: phrase,
     timeLimitMs: 5000,
   };
 }
 
-function generateModularArithmeticChallenge(): Omit<Challenge, "startedAt"> {
-  const base = Math.floor(Math.random() * 9000) + 1000;
-  const exp = Math.floor(Math.random() * 50) + 10;
-  const mod = Math.floor(Math.random() * 900) + 100;
+// ─── Binary string → ASCII text ───
 
-  // modular exponentiation
-  let result = 1;
-  let b = base % mod;
-  let e = exp;
-  while (e > 0) {
-    if (e % 2 === 1) result = (result * b) % mod;
-    e = Math.floor(e / 2);
-    b = (b * b) % mod;
-  }
+function generateBinaryAsciiChallenge(): Omit<Challenge, "startedAt"> {
+  const words = [
+    "bot", "ai", "net", "hub", "log", "run", "dev", "ops",
+    "api", "key", "cpu", "ram", "ssd", "gpu", "cli", "gui",
+  ];
+  const word = words[Math.floor(Math.random() * words.length)];
+  const binary = Array.from(word)
+    .map((c) => c.charCodeAt(0).toString(2).padStart(8, "0"))
+    .join(" ");
 
   return {
-    type: "mod_exp",
-    question: `Compute modular exponentiation`,
-    display: `${base}^${exp} mod ${mod} = ?`,
-    answer: `${result}`,
-    timeLimitMs: 8000,
+    type: "binary_ascii",
+    question: `Convert this binary to ASCII text`,
+    display: `Binary → ASCII:\n${binary}`,
+    answer: word,
+    timeLimitMs: 6000,
   };
 }
 
