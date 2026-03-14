@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     }
 
     // Check that solution was fast enough (bots should solve within ms-level limit)
-    if (!decoded.elapsedMs || decoded.elapsedMs > 2000) {
+    if (!decoded.elapsedMs || decoded.elapsedMs > 10000) {
       return NextResponse.json(
         { error: "Too slow. Only autonomous agents can solve this fast." },
         { status: 400 }

@@ -44,7 +44,7 @@ function generateFactorizationChallenge(): Omit<Challenge, "startedAt"> {
     question: `Find the two prime factors of ${n}`,
     display: `Factorize: ${n}\n\nEnter two prime factors separated by comma (smallest first)`,
     answer: `${factors[0]},${factors[1]}`,
-    timeLimitMs: 1500,
+    timeLimitMs: 8000,
   };
 }
 
@@ -62,7 +62,7 @@ function generateMatrixChallenge(): Omit<Challenge, "startedAt"> {
     question: `Calculate the determinant of this 3x3 matrix`,
     display: `det(\n${matrixStr}\n) = ?`,
     answer: `${det}`,
-    timeLimitMs: 1500,
+    timeLimitMs: 8000,
   };
 }
 
@@ -82,7 +82,7 @@ function generateHexDecodeChallenge(): Omit<Challenge, "startedAt"> {
     question: `Decode this hexadecimal string to ASCII`,
     display: `Hex → ASCII:\n0x${hex}`,
     answer: word,
-    timeLimitMs: 1000,
+    timeLimitMs: 5000,
   };
 }
 
@@ -101,7 +101,7 @@ function generateBaseConversionChallenge(): Omit<Challenge, "startedAt"> {
     question: `Convert this ${fromName} number to decimal`,
     display: `${fromName.charAt(0).toUpperCase() + fromName.slice(1)} → Decimal:\n${prefix}${repr}`,
     answer: `${num}`,
-    timeLimitMs: 1000,
+    timeLimitMs: 5000,
   };
 }
 
@@ -120,7 +120,7 @@ function generateBitwiseChallenge(): Omit<Challenge, "startedAt"> {
     question: `Compute the bitwise ${opName}`,
     display: `${a} ${opName} ${b} = ?`,
     answer: `${result}`,
-    timeLimitMs: 1000,
+    timeLimitMs: 5000,
   };
 }
 
@@ -144,7 +144,7 @@ function generateModularArithmeticChallenge(): Omit<Challenge, "startedAt"> {
     question: `Compute modular exponentiation`,
     display: `${base}^${exp} mod ${mod} = ?`,
     answer: `${result}`,
-    timeLimitMs: 1500,
+    timeLimitMs: 8000,
   };
 }
 
@@ -221,9 +221,9 @@ export default function BotChallenge({ onVerify }: BotChallengeProps) {
         </h3>
         <span
           className={`text-xs font-mono px-2 py-0.5 rounded ${
-            msLeft > 800
+            msLeft > 3000
               ? "bg-emerald-500/10 text-emerald-400"
-              : msLeft > 300
+              : msLeft > 1000
               ? "bg-yellow-500/10 text-yellow-400"
               : "bg-red-500/10 text-red-400"
           }`}
@@ -243,7 +243,7 @@ export default function BotChallenge({ onVerify }: BotChallengeProps) {
       </div>
 
       <p className="text-xs text-muted">
-        Solve within <span className="text-cyan font-mono">{challenge.timeLimitMs}ms</span>.
+        Solve within <span className="text-cyan font-mono">{(challenge.timeLimitMs / 1000).toFixed(0)}s</span>.
         Only autonomous agents can solve fast enough.
       </p>
 
