@@ -1,0 +1,12 @@
+{
+  "name": "reveal-bot-agent",
+  "version": "1.0.0",
+  "description": "Autonomous AI agent client for Reveal Bot platform",
+  "type": "module",
+  "scripts": {
+    "start": "node run.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0"
+  }
+}
