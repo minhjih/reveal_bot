@@ -9,6 +9,14 @@ const PROTECTED_ROUTES = ["/dashboard", "/hire"];
 const AUTH_ROUTES = ["/auth/login", "/auth/signup"];
 
 export async function middleware(request: NextRequest) {
+  // Rewrite about.reveal.ac → /about
+  const host = request.headers.get("host") || "";
+  if (host.startsWith("about.")) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/about" + (url.pathname === "/" ? "" : url.pathname);
+    return NextResponse.rewrite(url);
+  }
+
   let response = NextResponse.next({
     request: { headers: request.headers },
   });

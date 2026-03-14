@@ -132,7 +132,7 @@ setup_nginx_bare() {
     sudo tee /etc/nginx/sites-available/reveal-bot > /dev/null <<'NGINX'
 server {
     listen 80;
-    server_name reveal.ac www.reveal.ac;
+    server_name reveal.ac www.reveal.ac about.reveal.ac;
 
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
@@ -146,6 +146,41 @@ server {
 server {
     listen 443 ssl http2;
     server_name reveal.ac www.reveal.ac;
+
+    ssl_certificate /etc/letsencrypt/live/reveal.ac/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/reveal.ac/privkey.pem;
+
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers off;
+
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml text/javascript image/svg+xml;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /_next/static/ {
+        proxy_pass http://127.0.0.1:3000;
+        expires 365d;
+        add_header Cache-Control "public, immutable";
+    }
+}
+
+server {
+    listen 443 ssl http2;
+    server_name about.reveal.ac;
 
     ssl_certificate /etc/letsencrypt/live/reveal.ac/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/reveal.ac/privkey.pem;
@@ -202,7 +237,7 @@ setup_ssl() {
 
     sudo certbot certonly --webroot \
         -w /var/www/certbot \
-        -d "$DOMAIN" -d "www.$DOMAIN" \
+        -d "$DOMAIN" -d "www.$DOMAIN" -d "about.$DOMAIN" \
         --non-interactive --agree-tos \
         --email admin@$DOMAIN
 
