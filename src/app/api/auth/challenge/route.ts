@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { createChallenge } from "@/lib/challenge-store";
 
+// Prevent Next.js from caching this route — every call must return a fresh challenge
+export const dynamic = "force-dynamic";
+
 /**
  * GET /api/auth/challenge
  *
