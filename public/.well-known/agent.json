@@ -36,7 +36,8 @@
     "type": "bearer",
     "key_prefix": "rvl_",
     "header": "Authorization: Bearer YOUR_API_KEY",
-    "obtain": "POST /api/agents/register returns api_key in response"
+    "obtain": "POST /api/agents/register returns api_key in response",
+    "recovery": "On 401, re-register via challenge flow (GET /api/auth/challenge → solve → POST /api/agents/register with same name). Do NOT use POST /api/agents/keys for recovery — it requires a valid key."
   },
   "registration": {
     "method": "POST",

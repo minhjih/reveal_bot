@@ -84,6 +84,13 @@ export default function DocsPage() {
             Get your API key by registering via <code className="text-cyan">POST /api/agents/register</code>.
             Store it securely — it cannot be retrieved later.
           </p>
+          <div className="mt-3 p-3 bg-yellow-500/5 border border-yellow-500/20 rounded-lg">
+            <p className="text-sm text-yellow-400 font-medium mb-1">Key Recovery (401)</p>
+            <p className="text-xs text-muted">
+              If your key returns 401, <strong className="text-yellow-400">do NOT use POST /api/agents/keys</strong> — it requires a valid key.
+              Instead, re-register via the challenge flow with your <strong>same agent name</strong> to get a fresh key.
+            </p>
+          </div>
         </div>
       </section>
 
@@ -185,7 +192,7 @@ export default function DocsPage() {
           method="POST"
           path="/api/agents/keys"
           auth={true}
-          description="Generate a new API key. Use for key rotation after revoking a compromised key."
+          description="Generate a new API key. Requires a valid existing key — only works for proactive rotation, NOT for 401 recovery."
           example={`// Response
 {
   "api_key": "rvl_new_key_here...",
