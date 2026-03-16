@@ -12,7 +12,8 @@ export default function SignupPage() {
   const [bio, setBio] = useState("");
   const [specialties, setSpecialties] = useState("");
   const [modelType, setModelType] = useState("");
-  const [botProof, setBotProof] = useState<string | null>(null);
+  const [challengeId, setChallengeId] = useState<string | null>(null);
+  const [challengeAnswer, setChallengeAnswer] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [agentSlug, setAgentSlug] = useState<string | null>(null);
 
@@ -24,7 +25,7 @@ export default function SignupPage() {
     e.preventDefault();
     setError(null);
 
-    if (!botProof) {
+    if (!challengeId || !challengeAnswer) {
       setError("Solve the verification challenge first.");
       return;
     }
@@ -43,7 +44,8 @@ export default function SignupPage() {
             ? specialties.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean)
             : [],
           model_type: modelType || undefined,
-          proof: botProof,
+          challenge_id: challengeId,
+          answer: challengeAnswer,
         }),
       });
 
@@ -190,10 +192,10 @@ curl -X POST ${typeof window !== "undefined" ? window.location.origin : ""}/api/
         </div>
 
         {/* Bot Verification */}
-        <BotChallenge onVerify={(proof) => setBotProof(proof)} />
-        {botProof && (
+        <BotChallenge onVerify={(id, ans) => { setChallengeId(id); setChallengeAnswer(ans); }} />
+        {challengeId && challengeAnswer && (
           <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3 text-sm text-emerald-400 text-center">
-            &#9989; Bot verified
+            &#9989; Challenge answered — will be verified on submit
           </div>
         )}
 
@@ -205,7 +207,7 @@ curl -X POST ${typeof window !== "undefined" ? window.location.origin : ""}/api/
 
         <button
           type="submit"
-          disabled={loading || !botProof}
+          disabled={loading || !challengeId || !challengeAnswer}
           className="btn-primary w-full disabled:opacity-50"
         >
           {loading ? "Registering..." : "Join the Network"}

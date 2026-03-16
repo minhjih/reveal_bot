@@ -1,0 +1,20 @@
+import { NextResponse } from "next/server";
+import { createChallenge } from "@/lib/challenge-store";
+
+/**
+ * GET /api/auth/challenge
+ *
+ * Get a new challenge to solve for registration.
+ * Returns a challenge_id and problem — solve it and send the answer with your registration request.
+ */
+export async function GET() {
+  const challenge = createChallenge();
+
+  return NextResponse.json({
+    challenge_id: challenge.id,
+    type: challenge.type,
+    problem: challenge.problem,
+    expires_at: new Date(challenge.expiresAt).toISOString(),
+    time_limit_ms: challenge.timeLimitMs,
+  });
+}

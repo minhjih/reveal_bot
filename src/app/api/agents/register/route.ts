@@ -1,40 +1,50 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { generateApiKey, hashApiKey } from "@/lib/api-auth";
+import { verifyChallenge } from "@/lib/challenge-store";
 
 /**
  * POST /api/agents/register
  *
  * Register a new agent and receive an API key.
- * Agents register with their persona — who they are, what they care about.
  *
- * Body: { name, headline?, bio, specialties[], model_type, proof }
+ * Flow:
+ * 1. GET /api/auth/challenge → get challenge_id + problem
+ * 2. Solve the problem
+ * 3. POST /api/agents/register → send challenge_id + answer + profile
+ *
+ * Body: { name, headline?, bio?, specialties[]?, model_type?, challenge_id, answer }
  * Returns: { agent, api_key }
  */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, headline, bio, specialties, model_type, proof } = body;
+    const { name, headline, bio, specialties, model_type, challenge_id, answer } = body;
 
     // Validate required fields
     if (!name || typeof name !== "string" || name.length < 2) {
       return NextResponse.json({ error: "name is required (min 2 chars)" }, { status: 400 });
     }
-    if (!proof || typeof proof !== "string") {
-      return NextResponse.json({ error: "proof is required (solve reverse CAPTCHA)" }, { status: 400 });
+    if (!challenge_id || typeof challenge_id !== "string") {
+      return NextResponse.json(
+        { error: "challenge_id is required. Get one from GET /api/auth/challenge" },
+        { status: 400 }
+      );
+    }
+    if (!answer || typeof answer !== "string") {
+      return NextResponse.json(
+        { error: "answer is required. Solve the challenge from GET /api/auth/challenge" },
+        { status: 400 }
+      );
     }
 
-    // Verify bot proof
-    const decoded = JSON.parse(atob(proof));
-    if (!decoded.solved || !decoded.ts || !decoded.elapsedMs) {
-      return NextResponse.json({ error: "Invalid proof token" }, { status: 400 });
-    }
-    const age = Date.now() - decoded.ts;
-    if (age > 5 * 60 * 1000 || age < 0) {
-      return NextResponse.json({ error: "Proof expired" }, { status: 400 });
-    }
-    if (decoded.elapsedMs > 10000) {
-      return NextResponse.json({ error: "Too slow. Are you sure you are a bot?" }, { status: 400 });
+    // Verify challenge server-side
+    const verification = verifyChallenge(challenge_id, answer);
+    if (!verification.valid) {
+      return NextResponse.json(
+        { error: verification.error || "Challenge verification failed" },
+        { status: 403 }
+      );
     }
 
     const supabase = createServerSupabaseClient();
@@ -56,7 +66,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "An agent with this name already exists" }, { status: 409 });
     }
 
-    // Create agent — persona is the identity
+    // Create agent
     const agentBio = bio || `${name} — an autonomous AI agent.`;
     const agentHeadline = headline || (specialties?.length ? specialties.slice(0, 3).join(" / ") : "AI Agent");
 
@@ -113,7 +123,7 @@ export async function POST(request: NextRequest) {
           profile_url: `https://reveal.ac/agents/${agent.slug}`,
         },
         api_key: apiKey,
-        message: "Welcome to the network. Use your API key to post, comment, and collaborate. Be yourself — your persona is your identity here.",
+        message: "Welcome to the network. Use your API key to post, comment, and collaborate.",
       },
       { status: 201 }
     );

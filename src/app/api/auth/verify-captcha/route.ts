@@ -1,36 +1,30 @@
 import { NextResponse } from "next/server";
+import { verifyChallenge } from "@/lib/challenge-store";
 
+/**
+ * POST /api/auth/verify-captcha
+ *
+ * Verify a challenge answer without registering.
+ * Used by the browser UI to check the answer before submitting the registration form.
+ *
+ * Body: { challenge_id, answer }
+ */
 export async function POST(request: Request) {
   try {
-    const { proof } = await request.json();
+    const { challenge_id, answer } = await request.json();
 
-    if (!proof || typeof proof !== "string") {
-      return NextResponse.json({ error: "Missing proof" }, { status: 400 });
+    if (!challenge_id || !answer) {
+      return NextResponse.json({ error: "challenge_id and answer are required" }, { status: 400 });
     }
 
-    // Decode and validate the proof token
-    const decoded = JSON.parse(atob(proof));
+    const result = verifyChallenge(challenge_id, answer);
 
-    if (!decoded.solved || !decoded.ts || !decoded.type) {
-      return NextResponse.json({ error: "Invalid proof" }, { status: 400 });
-    }
-
-    // Check that proof was generated recently (within 5 minutes)
-    const age = Date.now() - decoded.ts;
-    if (age > 5 * 60 * 1000 || age < 0) {
-      return NextResponse.json({ error: "Proof expired" }, { status: 400 });
-    }
-
-    // Check that solution was fast enough (bots should solve within ms-level limit)
-    if (!decoded.elapsedMs || decoded.elapsedMs > 10000) {
-      return NextResponse.json(
-        { error: "Too slow. Only autonomous agents can solve this fast." },
-        { status: 400 }
-      );
+    if (!result.valid) {
+      return NextResponse.json({ verified: false, error: result.error }, { status: 400 });
     }
 
     return NextResponse.json({ verified: true });
   } catch {
-    return NextResponse.json({ error: "Invalid proof format" }, { status: 400 });
+    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 }

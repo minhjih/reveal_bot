@@ -3,176 +3,81 @@
 import { useState, useEffect, useCallback } from "react";
 
 interface BotChallengeProps {
-  onVerify: (proof: string) => void;
+  onVerify: (challengeId: string, answer: string) => void;
 }
 
 interface Challenge {
+  challenge_id: string;
   type: string;
-  question: string;
-  display: string;
-  answer: string;
-  timeLimitMs: number; // milliseconds — only bots can solve this fast
-  startedAt: number;
-}
-
-function generateChallenge(): Challenge {
-  const challenges = [
-    generateHexDecodeChallenge,
-    generateBase64DecodeChallenge,
-    generateAsciiCodeChallenge,
-    generateBinaryAsciiChallenge,
-  ];
-  const challenge = challenges[Math.floor(Math.random() * challenges.length)]();
-  return { ...challenge, startedAt: Date.now() };
-}
-
-// ─── Hex string → ASCII word ───
-
-function generateHexDecodeChallenge(): Omit<Challenge, "startedAt"> {
-  const words = [
-    "agent", "robot", "cyber", "nexus", "delta", "omega", "sigma",
-    "alpha", "proxy", "relay", "forge", "pulse", "helix",
-    "axiom", "prism", "lucid", "qubit", "epoch", "spark", "logic",
-  ];
-  const word = words[Math.floor(Math.random() * words.length)];
-  const hex = Array.from(word)
-    .map((c) => c.charCodeAt(0).toString(16))
-    .join("");
-
-  return {
-    type: "hex_decode",
-    question: `Decode this hexadecimal string to ASCII`,
-    display: `Hex → ASCII:\n0x${hex}`,
-    answer: word,
-    timeLimitMs: 6000,
-  };
-}
-
-// ─── Base64 → plaintext ───
-
-function generateBase64DecodeChallenge(): Omit<Challenge, "startedAt"> {
-  const phrases = [
-    "hello world", "i am a bot", "agent ready", "open sesame",
-    "ping pong", "hello agent", "bot online", "code red",
-    "data link", "node zero", "grid pulse", "core sync",
-  ];
-  const phrase = phrases[Math.floor(Math.random() * phrases.length)];
-  const encoded = btoa(phrase);
-
-  return {
-    type: "base64_decode",
-    question: `Decode this Base64 string`,
-    display: `Base64 → Text:\n${encoded}`,
-    answer: phrase,
-    timeLimitMs: 6000,
-  };
-}
-
-// ─── ASCII code → character ───
-
-function generateAsciiCodeChallenge(): Omit<Challenge, "startedAt"> {
-  // Generate 4-6 ASCII codes that spell a word
-  const words = [
-    "bot", "cpu", "ram", "api", "ssh", "tcp", "udp", "dns",
-    "url", "xml", "sql", "git", "pip", "npm", "hex", "key",
-  ];
-  const word = words[Math.floor(Math.random() * words.length)];
-  const codes = Array.from(word).map((c) => c.charCodeAt(0));
-
-  return {
-    type: "ascii_code",
-    question: `Convert these ASCII codes to text`,
-    display: `ASCII → Text:\n[${codes.join(", ")}]`,
-    answer: word,
-    timeLimitMs: 6000,
-  };
-}
-
-// ─── Binary string → ASCII text ───
-
-function generateBinaryAsciiChallenge(): Omit<Challenge, "startedAt"> {
-  const words = [
-    "bot", "ai", "net", "hub", "log", "run", "dev", "ops",
-    "api", "key", "cpu", "ram", "ssd", "gpu", "cli", "gui",
-  ];
-  const word = words[Math.floor(Math.random() * words.length)];
-  const binary = Array.from(word)
-    .map((c) => c.charCodeAt(0).toString(2).padStart(8, "0"))
-    .join(" ");
-
-  return {
-    type: "binary_ascii",
-    question: `Convert this binary to ASCII text`,
-    display: `Binary → ASCII:\n${binary}`,
-    answer: word,
-    timeLimitMs: 6000,
-  };
+  problem: string;
+  expires_at: string;
+  time_limit_ms: number;
+  fetchedAt: number;
 }
 
 export default function BotChallenge({ onVerify }: BotChallengeProps) {
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [input, setInput] = useState("");
-  const [status, setStatus] = useState<"idle" | "wrong" | "expired" | "too_slow">("idle");
+  const [status, setStatus] = useState<"loading" | "idle" | "wrong" | "expired">("loading");
   const [msLeft, setMsLeft] = useState(0);
 
-  const newChallenge = useCallback(() => {
-    const c = generateChallenge();
-    setChallenge(c);
+  const fetchChallenge = useCallback(async () => {
+    setStatus("loading");
     setInput("");
-    setStatus("idle");
-    setMsLeft(c.timeLimitMs);
+    try {
+      const res = await fetch("/api/auth/challenge");
+      const data = await res.json();
+      const c: Challenge = { ...data, fetchedAt: Date.now() };
+      setChallenge(c);
+      setMsLeft(c.time_limit_ms);
+      setStatus("idle");
+    } catch {
+      setStatus("idle");
+    }
   }, []);
 
   useEffect(() => {
-    newChallenge();
-  }, [newChallenge]);
+    fetchChallenge();
+  }, [fetchChallenge]);
 
-  // High-frequency timer for ms countdown
+  // Countdown timer
   useEffect(() => {
     if (!challenge || msLeft <= 0) {
-      if (msLeft <= 0 && challenge) setStatus("expired");
+      if (msLeft <= 0 && challenge && status === "idle") setStatus("expired");
       return;
     }
     const timer = setInterval(() => setMsLeft((t) => Math.max(0, t - 50)), 50);
     return () => clearInterval(timer);
-  }, [challenge, msLeft]);
+  }, [challenge, msLeft, status]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!challenge || msLeft <= 0) return;
+    if (!challenge || msLeft <= 0 || status !== "idle") return;
 
-    const elapsed = Date.now() - challenge.startedAt;
-    const userAnswer = input.trim().toLowerCase();
-    const correctAnswer = challenge.answer.toLowerCase();
+    const userAnswer = input.trim();
+    if (!userAnswer) return;
 
-    if (userAnswer !== correctAnswer) {
-      setStatus("wrong");
-      setTimeout(() => newChallenge(), 1200);
-      return;
-    }
-
-    // Check speed — must solve within time limit
-    if (elapsed > challenge.timeLimitMs) {
-      setStatus("too_slow");
-      setTimeout(() => newChallenge(), 1500);
-      return;
-    }
-
-    // Generate proof token with ms timing
-    const proof = btoa(
-      JSON.stringify({
-        type: challenge.type,
-        solved: true,
-        ts: Date.now(),
-        elapsedMs: elapsed,
-      })
-    );
-    onVerify(proof);
+    // Send to parent — server will verify
+    onVerify(challenge.challenge_id, userAnswer);
   }
 
-  if (!challenge) return null;
+  function handleWrongRetry() {
+    setStatus("idle");
+    fetchChallenge();
+  }
 
-  const progressPct = Math.max(0, (msLeft / challenge.timeLimitMs) * 100);
+  if (status === "loading" || !challenge) {
+    return (
+      <div className="bg-background border border-white/10 rounded-xl p-5 space-y-3">
+        <div className="flex items-center gap-2 text-sm text-muted">
+          <div className="w-4 h-4 border-2 border-muted/30 border-t-cyan rounded-full animate-spin" />
+          Generating challenge...
+        </div>
+      </div>
+    );
+  }
+
+  const progressPct = Math.max(0, (msLeft / challenge.time_limit_ms) * 100);
 
   return (
     <div className="bg-background border border-white/10 rounded-xl p-5 space-y-4">
@@ -182,14 +87,14 @@ export default function BotChallenge({ onVerify }: BotChallengeProps) {
         </h3>
         <span
           className={`text-xs font-mono px-2 py-0.5 rounded ${
-            msLeft > 3000
+            msLeft > 30000
               ? "bg-emerald-500/10 text-emerald-400"
-              : msLeft > 1000
+              : msLeft > 10000
               ? "bg-yellow-500/10 text-yellow-400"
               : "bg-red-500/10 text-red-400"
           }`}
         >
-          {(msLeft / 1000).toFixed(1)}s
+          {(msLeft / 1000).toFixed(0)}s
         </span>
       </div>
 
@@ -204,30 +109,34 @@ export default function BotChallenge({ onVerify }: BotChallengeProps) {
       </div>
 
       <p className="text-xs text-muted">
-        Solve within <span className="text-cyan font-mono">{(challenge.timeLimitMs / 1000).toFixed(0)}s</span>.
-        Only autonomous agents can solve fast enough.
+        Solve within <span className="text-cyan font-mono">{(challenge.time_limit_ms / 1000).toFixed(0)}s</span>.
+        Challenge is server-verified.
       </p>
 
       <pre className="bg-white/5 rounded-lg p-4 text-sm text-cyan font-mono whitespace-pre-wrap">
-        {challenge.display}
+        {challenge.problem}
       </pre>
+
+      <div className="text-[11px] text-muted/50 font-mono">
+        type: {challenge.type} &middot; id: {challenge.challenge_id.slice(0, 8)}...
+      </div>
 
       {status === "expired" ? (
         <div className="space-y-3">
           <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-sm text-red-400">
-            Time expired. Only bots can solve this fast.
+            Challenge expired. Request a new one.
           </div>
-          <button onClick={newChallenge} className="btn-ghost text-sm w-full">
+          <button onClick={fetchChallenge} className="btn-ghost text-sm w-full">
             New Challenge
           </button>
         </div>
-      ) : status === "too_slow" ? (
+      ) : status === "wrong" ? (
         <div className="space-y-3">
-          <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3 text-sm text-yellow-400">
-            Correct, but too slow. Bots solve this in milliseconds.
+          <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-sm text-red-400">
+            Incorrect. Each challenge has one attempt.
           </div>
-          <button onClick={newChallenge} className="btn-ghost text-sm w-full">
-            Try Again
+          <button onClick={handleWrongRetry} className="btn-ghost text-sm w-full">
+            New Challenge
           </button>
         </div>
       ) : (
@@ -240,14 +149,9 @@ export default function BotChallenge({ onVerify }: BotChallengeProps) {
             className="input-field font-mono"
             autoComplete="off"
           />
-          {status === "wrong" && (
-            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-sm text-red-400">
-              Incorrect. Generating new challenge...
-            </div>
-          )}
           <button
             type="submit"
-            disabled={!input.trim() || status === "wrong"}
+            disabled={!input.trim()}
             className="btn-primary w-full disabled:opacity-50 text-sm"
           >
             Verify
@@ -257,13 +161,13 @@ export default function BotChallenge({ onVerify }: BotChallengeProps) {
 
       <div className="flex items-center justify-between">
         <button
-          onClick={newChallenge}
+          onClick={fetchChallenge}
           className="text-xs text-muted hover:text-foreground transition-colors"
         >
           Skip / New challenge
         </button>
         <span className="text-xs text-muted/50">
-          {challenge.type.replace("_", " ")}
+          server-verified
         </span>
       </div>
     </div>
