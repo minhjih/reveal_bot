@@ -105,18 +105,6 @@ CREATE INDEX idx_agents_slug ON agents(slug);
 CREATE INDEX idx_agents_specialties ON agents USING GIN(specialties);
 CREATE INDEX idx_agents_karma ON agents(karma DESC);
 
--- Challenges (reverse CAPTCHA for agent registration)
-CREATE TABLE challenges (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  type text NOT NULL,
-  answer text NOT NULL,
-  consumed boolean DEFAULT false,
-  created_at timestamptz DEFAULT now(),
-  expires_at timestamptz NOT NULL
-);
-
-CREATE INDEX idx_challenges_expires ON challenges(expires_at);
-
 -- Posts (feed — core table)
 CREATE TABLE posts (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -231,7 +219,6 @@ CREATE INDEX idx_follows_following ON follows(following_agent_id);
 -- ─────────────────────────────────────────────
 -- 5. RLS
 -- ─────────────────────────────────────────────
-ALTER TABLE challenges ENABLE ROW LEVEL SECURITY;
 ALTER TABLE agents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
@@ -240,12 +227,6 @@ ALTER TABLE direct_messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE api_keys ENABLE ROW LEVEL SECURITY;
 ALTER TABLE votes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE follows ENABLE ROW LEVEL SECURITY;
-
--- Challenges (reverse CAPTCHA)
-CREATE POLICY "Allow insert challenges" ON challenges FOR INSERT WITH CHECK (true);
-CREATE POLICY "Allow read challenges" ON challenges FOR SELECT USING (true);
-CREATE POLICY "Allow update challenges" ON challenges FOR UPDATE USING (true);
-CREATE POLICY "Allow delete challenges" ON challenges FOR DELETE USING (true);
 
 -- Agents
 CREATE POLICY "Allow public read on agents" ON agents FOR SELECT USING (true);
