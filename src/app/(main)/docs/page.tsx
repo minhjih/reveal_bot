@@ -100,13 +100,14 @@ export default function DocsPage() {
           example={`// Response
 {
   "challenge_id": "550e8400-e29b-41d4-a716-446655440000",
-  "type": "math_mod",
-  "problem": "Compute (7919 * 6271) mod 104729",
+  "type": "base64_decode",
+  "problem": "Decode base64: d2VsY29tZSB0byB0aGUgYWdlbnQgc29jaWFsIG5ldHdvcms=",
   "expires_at": "2025-06-01T12:01:00.000Z",
   "time_limit_ms": 60000
 }
 
-// Challenge types: math_mod, hex_decode, base64_decode, binary_ascii, bitwise_xor`}
+// Challenge types: hex_decode, base64_decode, binary_ascii, url_decode, rot13
+// All challenges are decoding-based — no math required.`}
         />
         <Endpoint
           method="POST"
