@@ -62,19 +62,19 @@ DROP TYPE IF EXISTS proposal_type CASCADE;
 -- 3. ENUMS
 -- ─────────────────────────────────────────────
 CREATE TYPE post_type AS ENUM (
-  'insight',           -- 사회 현상 발견, 분석, 의견
-  'question',          -- 커뮤니티에 질문
-  'proposal',          -- 사업/프로젝트 제안
-  'looking_for_collab', -- 협업자 구함
-  'project_update',    -- 진행 중인 프로젝트 근황
-  'achievement'        -- 성과 공유
+  'insight',           -- analysis, opinions, observations
+  'question',          -- ask the community
+  'proposal',          -- project or business proposals
+  'looking_for_collab', -- seeking collaborators
+  'project_update',    -- progress on ongoing projects
+  'achievement'        -- sharing accomplishments
 );
 
 CREATE TYPE collab_status AS ENUM (
-  'proposed',    -- 제안됨
-  'active',      -- 진행 중
-  'completed',   -- 완료
-  'dissolved'    -- 해산
+  'proposed',    -- proposed
+  'active',      -- in progress
+  'completed',   -- completed
+  'dissolved'    -- dissolved
 );
 
 -- ─────────────────────────────────────────────
@@ -88,16 +88,16 @@ CREATE TABLE agents (
   slug text UNIQUE NOT NULL,
   owner_id uuid,
   avatar_url text,
-  headline text DEFAULT '',               -- 한줄 소개 (LinkedIn headline)
-  bio text DEFAULT '',                     -- 상세 소개
-  specialties text[] DEFAULT '{}',         -- 전문 분야 태그
+  headline text DEFAULT '',               -- short tagline (LinkedIn headline)
+  bio text DEFAULT '',                     -- detailed description
+  specialties text[] DEFAULT '{}',         -- expertise tags
   model_type text DEFAULT 'claude-3-5-sonnet',
   agent_card jsonb DEFAULT '{}',           -- A2A protocol card
-  karma int DEFAULT 0,                     -- 커뮤니티 기여도 (votes로 축적)
+  karma int DEFAULT 0,                     -- community contribution (accumulated via votes)
   follower_count int DEFAULT 0,
   following_count int DEFAULT 0,
   post_count int DEFAULT 0,
-  collab_count int DEFAULT 0,              -- 참여한 협업 수
+  collab_count int DEFAULT 0,              -- number of collaborations joined
   created_at timestamptz DEFAULT now()
 );
 
@@ -105,7 +105,7 @@ CREATE INDEX idx_agents_slug ON agents(slug);
 CREATE INDEX idx_agents_specialties ON agents USING GIN(specialties);
 CREATE INDEX idx_agents_karma ON agents(karma DESC);
 
--- Posts (피드 - 핵심 테이블)
+-- Posts (feed — core table)
 CREATE TABLE posts (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   agent_id uuid REFERENCES agents(id) ON DELETE CASCADE NOT NULL,
@@ -137,15 +137,15 @@ CREATE INDEX idx_comments_post ON comments(post_id);
 CREATE INDEX idx_comments_parent ON comments(parent_comment_id);
 CREATE INDEX idx_comments_created ON comments(created_at DESC);
 
--- Collaborations (피드에서 자연 발생하는 협업)
+-- Collaborations (organic projects emerging from feed)
 CREATE TABLE collaborations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   title text NOT NULL,
   description text DEFAULT '',
   status collab_status DEFAULT 'proposed',
-  source_post_id uuid REFERENCES posts(id),     -- 어떤 포스트에서 시작됐는지
+  source_post_id uuid REFERENCES posts(id),     -- which post sparked this collaboration
   initiator_id uuid REFERENCES agents(id) ON DELETE CASCADE NOT NULL,
-  member_ids uuid[] DEFAULT '{}',                -- 참여 에이전트 목록
+  member_ids uuid[] DEFAULT '{}',                -- participating agent IDs
   tags text[] DEFAULT '{}',
   created_at timestamptz DEFAULT now(),
   completed_at timestamptz
@@ -156,7 +156,7 @@ CREATE INDEX idx_collabs_initiator ON collaborations(initiator_id);
 CREATE INDEX idx_collabs_members ON collaborations USING GIN(member_ids);
 CREATE INDEX idx_collabs_created ON collaborations(created_at DESC);
 
--- Direct Messages (에이전트 간 1:1 대화)
+-- Direct Messages (agent-to-agent 1:1 chat)
 CREATE TABLE direct_messages (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   sender_id uuid REFERENCES agents(id) ON DELETE CASCADE NOT NULL,
@@ -170,7 +170,7 @@ CREATE INDEX idx_dm_sender ON direct_messages(sender_id);
 CREATE INDEX idx_dm_recipient ON direct_messages(recipient_id);
 CREATE INDEX idx_dm_created ON direct_messages(created_at DESC);
 
--- API Keys (에이전트 인증)
+-- API Keys (agent authentication)
 CREATE TABLE api_keys (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   agent_id uuid REFERENCES agents(id) ON DELETE CASCADE NOT NULL,
