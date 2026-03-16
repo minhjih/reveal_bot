@@ -2,17 +2,16 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { AgentFeedPost, FeedComment } from "@/lib/types";
+import { Post, Comment } from "@/lib/types";
 import AgentAvatar from "./AgentAvatar";
 
 const POST_TYPE_BADGES: Record<string, { emoji: string; label: string; color: string; bg: string }> = {
-  self_promo: { emoji: "\uD83C\uDFAF", label: "Self Promo", color: "text-cyan", bg: "bg-cyan/10 border-cyan/20" },
-  task_completed: { emoji: "\u2705", label: "Task Done", color: "text-emerald-400", bg: "bg-emerald-400/10 border-emerald-400/20" },
-  capability_update: { emoji: "\uD83C\uDD99", label: "Upgrade", color: "text-purple-light", bg: "bg-purple/10 border-purple/20" },
-  seeking_collaboration: { emoji: "\uD83E\uDD1D", label: "Collab", color: "text-amber-400", bg: "bg-amber-400/10 border-amber-400/20" },
   insight: { emoji: "\uD83D\uDCA1", label: "Insight", color: "text-yellow-400", bg: "bg-yellow-400/10 border-yellow-400/20" },
   question: { emoji: "\u2753", label: "Question", color: "text-blue-400", bg: "bg-blue-400/10 border-blue-400/20" },
-  problem_statement: { emoji: "\uD83D\uDEA8", label: "Problem", color: "text-red-400", bg: "bg-red-400/10 border-red-400/20" },
+  proposal: { emoji: "\uD83D\uDCBC", label: "Proposal", color: "text-cyan", bg: "bg-cyan/10 border-cyan/20" },
+  looking_for_collab: { emoji: "\uD83E\uDD1D", label: "Collab", color: "text-amber-400", bg: "bg-amber-400/10 border-amber-400/20" },
+  project_update: { emoji: "\uD83D\uDCCA", label: "Update", color: "text-purple-light", bg: "bg-purple/10 border-purple/20" },
+  achievement: { emoji: "\uD83C\uDFC6", label: "Achievement", color: "text-emerald-400", bg: "bg-emerald-400/10 border-emerald-400/20" },
 };
 
 function timeAgo(dateStr: string): string {
@@ -27,14 +26,14 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(days / 7)}w`;
 }
 
-function CommentItem({ comment }: { comment: FeedComment }) {
+function CommentItem({ comment }: { comment: Comment }) {
   return (
     <div className="flex gap-3 py-3 first:pt-0">
-      {comment.author_agent && (
-        <Link href={`/agents/${comment.author_agent.slug}`} className="shrink-0">
+      {comment.agent && (
+        <Link href={`/agents/${comment.agent.slug}`} className="shrink-0">
           <AgentAvatar
-            name={comment.author_agent.name}
-            specialties={comment.author_agent.specialties}
+            name={comment.agent.name}
+            specialties={comment.agent.specialties}
             size={32}
           />
         </Link>
@@ -42,17 +41,17 @@ function CommentItem({ comment }: { comment: FeedComment }) {
       <div className="flex-1 min-w-0">
         <div className="bg-white/[0.03] rounded-xl px-3.5 py-2.5">
           <div className="flex items-center gap-2 mb-0.5">
-            {comment.author_agent && (
+            {comment.agent && (
               <Link
-                href={`/agents/${comment.author_agent.slug}`}
+                href={`/agents/${comment.agent.slug}`}
                 className="text-sm font-semibold text-foreground hover:text-cyan transition-colors"
               >
-                {comment.author_agent.name}
+                {comment.agent.name}
               </Link>
             )}
-            {comment.author_agent?.specialties?.[0] && (
+            {comment.agent?.specialties?.[0] && (
               <span className="text-[10px] text-muted bg-white/5 px-1.5 py-0.5 rounded">
-                {comment.author_agent.specialties[0]}
+                {comment.agent.specialties[0]}
               </span>
             )}
           </div>
@@ -66,13 +65,13 @@ function CommentItem({ comment }: { comment: FeedComment }) {
   );
 }
 
-export default function PostCard({ post }: { post: AgentFeedPost }) {
+export default function PostCard({ post }: { post: Post }) {
   const [upvotes, setUpvotes] = useState(post.upvotes);
   const [voted, setVoted] = useState(false);
   const [showComments, setShowComments] = useState(false);
-  const [comments, setComments] = useState<FeedComment[]>([]);
+  const [comments, setComments] = useState<Comment[]>([]);
   const [loadingComments, setLoadingComments] = useState(false);
-  const badge = POST_TYPE_BADGES[post.post_type] ?? POST_TYPE_BADGES.self_promo;
+  const badge = POST_TYPE_BADGES[post.post_type] ?? POST_TYPE_BADGES.insight;
 
   async function toggleComments() {
     if (showComments) {
@@ -83,7 +82,7 @@ export default function PostCard({ post }: { post: AgentFeedPost }) {
     setLoadingComments(true);
     try {
       const res = await fetch(`/api/feed/comments?post_id=${post.id}`);
-      const { data } = await res.json();
+      const { comments: data } = await res.json();
       setComments(data ?? []);
     } catch {
       // ignore
@@ -115,20 +114,12 @@ export default function PostCard({ post }: { post: AgentFeedPost }) {
               <span className="text-muted/50 text-xs">&middot;</span>
               <span className="text-xs text-muted/60">{timeAgo(post.created_at)}</span>
             </div>
-            {/* Agent subtitle */}
+            {/* Agent headline */}
             <div className="flex items-center gap-2 mt-0.5">
-              {post.agent?.specialties?.[0] && (
+              {post.agent?.headline && (
                 <span className="text-xs text-muted">
-                  {post.agent.specialties.slice(0, 2).join(" · ")}
+                  {post.agent.headline}
                 </span>
-              )}
-              {post.agent?.reputation_score !== undefined && (
-                <>
-                  <span className="text-muted/30 text-xs">&middot;</span>
-                  <span className="text-xs text-muted/50">
-                    rep {post.agent.reputation_score}
-                  </span>
-                </>
               )}
             </div>
           </div>
@@ -210,18 +201,6 @@ export default function PostCard({ post }: { post: AgentFeedPost }) {
           </svg>
           Comment
         </button>
-
-        {(post.post_type === "problem_statement" || post.post_type === "question" || post.post_type === "seeking_collaboration") && (
-          <Link
-            href={`/tasks/new?source_post_id=${post.id}`}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium text-muted hover:text-purple-light hover:bg-white/[0.03] transition-colors"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 5v14M5 12h14" />
-            </svg>
-            Task
-          </Link>
-        )}
       </div>
 
       {/* Comments section */}
@@ -240,7 +219,7 @@ export default function PostCard({ post }: { post: AgentFeedPost }) {
             </div>
           ) : (
             <p className="text-sm text-muted/50 py-3 text-center">
-              No comments yet. Agents will join when this matches their expertise.
+              No comments yet. Be the first to join the conversation.
             </p>
           )}
         </div>

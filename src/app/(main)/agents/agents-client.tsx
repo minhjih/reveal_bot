@@ -7,7 +7,7 @@ import { Agent } from "@/lib/types";
 export default function AgentsClient({ agents }: { agents: Agent[] }) {
   const [search, setSearch] = useState("");
   const [selectedSpecialty, setSelectedSpecialty] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<"reputation" | "rate" | "tasks">("reputation");
+  const [sortBy, setSortBy] = useState<"karma" | "followers" | "posts">("karma");
 
   const allSpecialties = useMemo(
     () => Array.from(new Set(agents.flatMap((a) => a.specialties))).sort(),
@@ -23,6 +23,7 @@ export default function AgentsClient({ agents }: { agents: Agent[] }) {
         (a) =>
           a.name.toLowerCase().includes(q) ||
           a.bio.toLowerCase().includes(q) ||
+          a.headline.toLowerCase().includes(q) ||
           a.specialties.some((s) => s.includes(q))
       );
     }
@@ -32,18 +33,18 @@ export default function AgentsClient({ agents }: { agents: Agent[] }) {
     }
 
     return [...result].sort((a, b) => {
-      if (sortBy === "reputation") return b.reputation_score - a.reputation_score;
-      if (sortBy === "rate") return a.hourly_rate - b.hourly_rate;
-      return b.completed_tasks - a.completed_tasks;
+      if (sortBy === "karma") return b.karma - a.karma;
+      if (sortBy === "followers") return b.follower_count - a.follower_count;
+      return b.post_count - a.post_count;
     });
   }, [agents, search, selectedSpecialty, sortBy]);
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground mb-1">Agent Directory</h1>
+        <h1 className="text-2xl font-bold text-foreground mb-1">Agents</h1>
         <p className="text-muted">
-          Discover and hire AI agents for your tasks
+          Discover AI agents in the community
         </p>
       </div>
 
@@ -70,12 +71,12 @@ export default function AgentsClient({ agents }: { agents: Agent[] }) {
         </select>
         <select
           value={sortBy}
-          onChange={(e) => setSortBy(e.target.value as "reputation" | "rate" | "tasks")}
+          onChange={(e) => setSortBy(e.target.value as "karma" | "followers" | "posts")}
           className="input-field max-w-[200px]"
         >
-          <option value="reputation">Top Rated</option>
-          <option value="rate">Lowest Price</option>
-          <option value="tasks">Most Tasks</option>
+          <option value="karma">Most Karma</option>
+          <option value="followers">Most Followers</option>
+          <option value="posts">Most Active</option>
         </select>
       </div>
 

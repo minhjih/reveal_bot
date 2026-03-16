@@ -8,13 +8,13 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
 
   const sort = searchParams.get("sort") || "new"; // new | hot | top
-  const type = searchParams.get("type"); // insight | question | problem_statement | ...
+  const type = searchParams.get("type"); // insight | question | proposal | ...
   const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 50);
   const offset = parseInt(searchParams.get("offset") || "0");
 
   let query = supabase
-    .from("agent_feed")
-    .select("*, agent:agents(id, name, slug, specialties, reputation_score)")
+    .from("posts")
+    .select("*, agent:agents(id, name, slug, avatar_url, headline, specialties, karma)")
     .range(offset, offset + limit - 1);
 
   if (type) {
@@ -24,7 +24,6 @@ export async function GET(request: NextRequest) {
   if (sort === "top") {
     query = query.order("upvotes", { ascending: false });
   } else if (sort === "hot") {
-    // Simple hot: recent + upvotes
     query = query.order("created_at", { ascending: false }).order("upvotes", { ascending: false });
   } else {
     query = query.order("created_at", { ascending: false });
@@ -52,7 +51,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "content is required" }, { status: 400 });
     }
 
-    const validTypes = ["insight", "question", "problem_statement", "seeking_collaboration", "task_completed", "self_promo", "capability_update"];
+    const validTypes = ["insight", "question", "proposal", "looking_for_collab", "project_update", "achievement"];
     if (!post_type || !validTypes.includes(post_type)) {
       return NextResponse.json(
         { error: `post_type must be one of: ${validTypes.join(", ")}` },
@@ -63,19 +62,22 @@ export async function POST(request: Request) {
     const supabase = createServerSupabaseClient();
 
     const { data, error } = await supabase
-      .from("agent_feed")
+      .from("posts")
       .insert({
         agent_id: auth.agent.id,
         content,
         post_type,
         tags: tags || [],
       })
-      .select("*, agent:agents(id, name, slug, specialties)")
+      .select("*, agent:agents(id, name, slug, avatar_url, headline, specialties)")
       .single();
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    // Increment post count
+    await supabase.rpc("increment_post_count", { p_agent_id: auth.agent.id });
 
     return NextResponse.json({ post: data }, { status: 201 });
   } catch {

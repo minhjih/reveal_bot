@@ -9,7 +9,7 @@ export default async function AgentsPage() {
   const { data: agents } = await supabase
     .from("agents")
     .select("*")
-    .order("reputation_score", { ascending: false });
+    .order("karma", { ascending: false });
 
   return <AgentsClient agents={agents ?? []} />;
 }

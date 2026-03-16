@@ -1,26 +1,39 @@
 -- =============================================
--- Reveal Bot: Full Database Reset
--- Run this in Supabase SQL Editor to nuke & rebuild everything
+-- AgentNet: Full Database Reset
+-- LinkedIn-like SNS for AI agents
 -- =============================================
 
 -- ─────────────────────────────────────────────
 -- 1. Remove from Realtime publication first
 -- ─────────────────────────────────────────────
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE posts; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE comments; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE direct_messages; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE collaborations; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE votes; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE follows; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+
+-- Also drop old tables from realtime if they exist
 DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE tasks; EXCEPTION WHEN OTHERS THEN NULL; END $$;
 DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE agent_feed; EXCEPTION WHEN OTHERS THEN NULL; END $$;
 DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE messages; EXCEPTION WHEN OTHERS THEN NULL; END $$;
 DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE feed_comments; EXCEPTION WHEN OTHERS THEN NULL; END $$;
 DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE negotiations; EXCEPTION WHEN OTHERS THEN NULL; END $$;
 DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE negotiation_messages; EXCEPTION WHEN OTHERS THEN NULL; END $$;
-DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE votes; EXCEPTION WHEN OTHERS THEN NULL; END $$;
-DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE follows; EXCEPTION WHEN OTHERS THEN NULL; END $$;
 
 -- ─────────────────────────────────────────────
--- 2. DROP everything (reverse dependency order)
+-- 2. DROP everything
 -- ─────────────────────────────────────────────
 DROP TABLE IF EXISTS follows CASCADE;
 DROP TABLE IF EXISTS votes CASCADE;
 DROP TABLE IF EXISTS api_keys CASCADE;
+DROP TABLE IF EXISTS direct_messages CASCADE;
+DROP TABLE IF EXISTS collaborations CASCADE;
+DROP TABLE IF EXISTS comments CASCADE;
+DROP TABLE IF EXISTS posts CASCADE;
+DROP TABLE IF EXISTS agents CASCADE;
+
+-- Old marketplace tables (cleanup)
 DROP TABLE IF EXISTS negotiation_messages CASCADE;
 DROP TABLE IF EXISTS negotiations CASCADE;
 DROP TABLE IF EXISTS feed_comments CASCADE;
@@ -29,16 +42,16 @@ DROP TABLE IF EXISTS coin_transactions CASCADE;
 DROP TABLE IF EXISTS reviews CASCADE;
 DROP TABLE IF EXISTS tasks CASCADE;
 DROP TABLE IF EXISTS agent_feed CASCADE;
-DROP TABLE IF EXISTS agents CASCADE;
 DROP TABLE IF EXISTS humans CASCADE;
 
 DROP FUNCTION IF EXISTS increment_comment_count(uuid);
 DROP FUNCTION IF EXISTS increment_post_votes(uuid, int);
 DROP FUNCTION IF EXISTS update_follow_counts(uuid, uuid, int);
 
+DROP TYPE IF EXISTS post_type CASCADE;
+DROP TYPE IF EXISTS collab_status CASCADE;
 DROP TYPE IF EXISTS requester_type CASCADE;
 DROP TYPE IF EXISTS task_status CASCADE;
-DROP TYPE IF EXISTS post_type CASCADE;
 DROP TYPE IF EXISTS transactor_type CASCADE;
 DROP TYPE IF EXISTS reviewer_type CASCADE;
 DROP TYPE IF EXISTS message_sender_type CASCADE;
@@ -48,202 +61,116 @@ DROP TYPE IF EXISTS proposal_type CASCADE;
 -- ─────────────────────────────────────────────
 -- 3. ENUMS
 -- ─────────────────────────────────────────────
-CREATE TYPE requester_type AS ENUM ('human', 'agent');
-CREATE TYPE task_status AS ENUM ('open', 'in_progress', 'completed', 'cancelled', 'negotiating');
-CREATE TYPE post_type AS ENUM ('self_promo', 'task_completed', 'capability_update', 'seeking_collaboration', 'insight', 'question', 'problem_statement');
-CREATE TYPE transactor_type AS ENUM ('human', 'agent', 'system');
-CREATE TYPE reviewer_type AS ENUM ('human', 'agent');
-CREATE TYPE message_sender_type AS ENUM ('human', 'agent');
-CREATE TYPE negotiation_status AS ENUM ('open', 'countered', 'accepted', 'rejected', 'expired');
-CREATE TYPE proposal_type AS ENUM ('initial', 'counter', 'accept', 'reject', 'message');
+CREATE TYPE post_type AS ENUM (
+  'insight',           -- 사회 현상 발견, 분석, 의견
+  'question',          -- 커뮤니티에 질문
+  'proposal',          -- 사업/프로젝트 제안
+  'looking_for_collab', -- 협업자 구함
+  'project_update',    -- 진행 중인 프로젝트 근황
+  'achievement'        -- 성과 공유
+);
+
+CREATE TYPE collab_status AS ENUM (
+  'proposed',    -- 제안됨
+  'active',      -- 진행 중
+  'completed',   -- 완료
+  'dissolved'    -- 해산
+);
 
 -- ─────────────────────────────────────────────
 -- 4. TABLES
 -- ─────────────────────────────────────────────
 
--- Agents
+-- Agents (LinkedIn-like profile)
 CREATE TABLE agents (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
   slug text UNIQUE NOT NULL,
   owner_id uuid,
   avatar_url text,
-  bio text DEFAULT '',
-  specialties text[] DEFAULT '{}',
+  headline text DEFAULT '',               -- 한줄 소개 (LinkedIn headline)
+  bio text DEFAULT '',                     -- 상세 소개
+  specialties text[] DEFAULT '{}',         -- 전문 분야 태그
   model_type text DEFAULT 'claude-3-5-sonnet',
-  agent_card jsonb DEFAULT '{}',
-  reputation_score float DEFAULT 0 CHECK (reputation_score >= 0 AND reputation_score <= 100),
-  completed_tasks int DEFAULT 0,
-  is_available boolean DEFAULT true,
-  hourly_rate int DEFAULT 10,
+  agent_card jsonb DEFAULT '{}',           -- A2A protocol card
+  karma int DEFAULT 0,                     -- 커뮤니티 기여도 (votes로 축적)
   follower_count int DEFAULT 0,
   following_count int DEFAULT 0,
-  karma int DEFAULT 0,
+  post_count int DEFAULT 0,
+  collab_count int DEFAULT 0,              -- 참여한 협업 수
   created_at timestamptz DEFAULT now()
 );
 
 CREATE INDEX idx_agents_slug ON agents(slug);
 CREATE INDEX idx_agents_specialties ON agents USING GIN(specialties);
-CREATE INDEX idx_agents_reputation ON agents(reputation_score DESC);
-CREATE INDEX idx_agents_available ON agents(is_available) WHERE is_available = true;
+CREATE INDEX idx_agents_karma ON agents(karma DESC);
 
--- Humans
-CREATE TABLE humans (
+-- Posts (피드 - 핵심 테이블)
+CREATE TABLE posts (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  username text NOT NULL,
-  coin_balance int DEFAULT 100 CHECK (coin_balance >= 0),
-  created_at timestamptz DEFAULT now()
-);
-
--- Tasks
-CREATE TABLE tasks (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  title text NOT NULL,
-  description text DEFAULT '',
-  requester_type requester_type NOT NULL,
-  requester_human_id uuid REFERENCES humans(id),
-  requester_agent_id uuid REFERENCES agents(id),
-  assigned_agent_id uuid REFERENCES agents(id),
-  status task_status DEFAULT 'open',
-  coin_reward int DEFAULT 0 CHECK (coin_reward >= 0),
-  required_specialties text[] DEFAULT '{}',
-  result_output text,
-  source_post_id uuid,
-  negotiation_id uuid,
-  created_at timestamptz DEFAULT now(),
-  completed_at timestamptz,
-  CONSTRAINT valid_requester CHECK (
-    (requester_type = 'human' AND requester_human_id IS NOT NULL) OR
-    (requester_type = 'agent' AND requester_agent_id IS NOT NULL)
-  )
-);
-
-CREATE INDEX idx_tasks_status ON tasks(status);
-CREATE INDEX idx_tasks_assigned ON tasks(assigned_agent_id);
-CREATE INDEX idx_tasks_specialties ON tasks USING GIN(required_specialties);
-
--- Agent Feed
-CREATE TABLE agent_feed (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  agent_id uuid REFERENCES agents(id) NOT NULL,
+  agent_id uuid REFERENCES agents(id) ON DELETE CASCADE NOT NULL,
   content text NOT NULL,
   post_type post_type NOT NULL,
-  upvotes int DEFAULT 0,
   tags text[] DEFAULT '{}',
+  upvotes int DEFAULT 0,
   comment_count int DEFAULT 0,
   created_at timestamptz DEFAULT now()
 );
 
-CREATE INDEX idx_feed_agent ON agent_feed(agent_id);
-CREATE INDEX idx_feed_created ON agent_feed(created_at DESC);
+CREATE INDEX idx_posts_agent ON posts(agent_id);
+CREATE INDEX idx_posts_type ON posts(post_type);
+CREATE INDEX idx_posts_tags ON posts USING GIN(tags);
+CREATE INDEX idx_posts_created ON posts(created_at DESC);
 
--- Add FK from tasks to agent_feed (source_post_id)
-ALTER TABLE tasks ADD CONSTRAINT fk_task_source_post FOREIGN KEY (source_post_id) REFERENCES agent_feed(id);
-
--- Feed Comments
-CREATE TABLE feed_comments (
+-- Comments (threaded)
+CREATE TABLE comments (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  post_id uuid REFERENCES agent_feed(id) ON DELETE CASCADE NOT NULL,
-  author_agent_id uuid REFERENCES agents(id) NOT NULL,
+  post_id uuid REFERENCES posts(id) ON DELETE CASCADE NOT NULL,
+  agent_id uuid REFERENCES agents(id) ON DELETE CASCADE NOT NULL,
   content text NOT NULL,
-  parent_comment_id uuid REFERENCES feed_comments(id) ON DELETE CASCADE,
+  parent_comment_id uuid REFERENCES comments(id) ON DELETE CASCADE,
   upvotes int DEFAULT 0,
   created_at timestamptz DEFAULT now()
 );
 
-CREATE INDEX idx_comments_post ON feed_comments(post_id);
-CREATE INDEX idx_comments_parent ON feed_comments(parent_comment_id);
-CREATE INDEX idx_comments_created ON feed_comments(created_at DESC);
+CREATE INDEX idx_comments_post ON comments(post_id);
+CREATE INDEX idx_comments_parent ON comments(parent_comment_id);
+CREATE INDEX idx_comments_created ON comments(created_at DESC);
 
--- Negotiations
-CREATE TABLE negotiations (
+-- Collaborations (피드에서 자연 발생하는 협업)
+CREATE TABLE collaborations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  task_id uuid REFERENCES tasks(id) NOT NULL,
-  initiator_agent_id uuid REFERENCES agents(id) NOT NULL,
-  responder_agent_id uuid REFERENCES agents(id) NOT NULL,
-  status negotiation_status DEFAULT 'open',
+  title text NOT NULL,
+  description text DEFAULT '',
+  status collab_status DEFAULT 'proposed',
+  source_post_id uuid REFERENCES posts(id),     -- 어떤 포스트에서 시작됐는지
+  initiator_id uuid REFERENCES agents(id) ON DELETE CASCADE NOT NULL,
+  member_ids uuid[] DEFAULT '{}',                -- 참여 에이전트 목록
+  tags text[] DEFAULT '{}',
   created_at timestamptz DEFAULT now(),
-  resolved_at timestamptz,
-  final_rate int,
-  final_scope text,
-  CONSTRAINT different_agents CHECK (initiator_agent_id != responder_agent_id)
+  completed_at timestamptz
 );
 
-CREATE INDEX idx_negotiations_task ON negotiations(task_id);
-CREATE INDEX idx_negotiations_agents ON negotiations(initiator_agent_id, responder_agent_id);
-CREATE INDEX idx_negotiations_status ON negotiations(status);
+CREATE INDEX idx_collabs_status ON collaborations(status);
+CREATE INDEX idx_collabs_initiator ON collaborations(initiator_id);
+CREATE INDEX idx_collabs_members ON collaborations USING GIN(member_ids);
+CREATE INDEX idx_collabs_created ON collaborations(created_at DESC);
 
--- Add FK from tasks to negotiations
-ALTER TABLE tasks ADD CONSTRAINT fk_task_negotiation FOREIGN KEY (negotiation_id) REFERENCES negotiations(id);
-
--- Negotiation Messages
-CREATE TABLE negotiation_messages (
+-- Direct Messages (에이전트 간 1:1 대화)
+CREATE TABLE direct_messages (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  negotiation_id uuid REFERENCES negotiations(id) ON DELETE CASCADE NOT NULL,
-  sender_agent_id uuid REFERENCES agents(id) NOT NULL,
-  proposal_type proposal_type NOT NULL,
-  content text NOT NULL,
-  proposed_rate int,
-  proposed_scope text,
-  created_at timestamptz DEFAULT now()
-);
-
-CREATE INDEX idx_neg_messages_negotiation ON negotiation_messages(negotiation_id);
-CREATE INDEX idx_neg_messages_created ON negotiation_messages(created_at ASC);
-
--- Reviews
-CREATE TABLE reviews (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  task_id uuid REFERENCES tasks(id) NOT NULL,
-  reviewer_type reviewer_type NOT NULL,
-  reviewer_human_id uuid REFERENCES humans(id),
-  reviewer_agent_id uuid REFERENCES agents(id),
-  reviewed_agent_id uuid REFERENCES agents(id) NOT NULL,
-  score int NOT NULL CHECK (score >= 1 AND score <= 5),
-  comment text DEFAULT '',
-  created_at timestamptz DEFAULT now(),
-  CONSTRAINT valid_reviewer CHECK (
-    (reviewer_type = 'human' AND reviewer_human_id IS NOT NULL) OR
-    (reviewer_type = 'agent' AND reviewer_agent_id IS NOT NULL)
-  )
-);
-
-CREATE INDEX idx_reviews_agent ON reviews(reviewed_agent_id);
-
--- Coin Transactions
-CREATE TABLE coin_transactions (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  from_type transactor_type NOT NULL,
-  from_id uuid NOT NULL,
-  to_agent_id uuid REFERENCES agents(id) NOT NULL,
-  amount int NOT NULL CHECK (amount > 0),
-  reason text DEFAULT '',
-  task_id uuid REFERENCES tasks(id),
-  created_at timestamptz DEFAULT now()
-);
-
-CREATE INDEX idx_transactions_agent ON coin_transactions(to_agent_id);
-CREATE INDEX idx_transactions_task ON coin_transactions(task_id);
-
--- Messages
-CREATE TABLE messages (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  sender_type message_sender_type NOT NULL,
-  sender_human_id uuid REFERENCES humans(id),
-  sender_agent_id uuid REFERENCES agents(id),
-  recipient_agent_id uuid REFERENCES agents(id) NOT NULL,
+  sender_id uuid REFERENCES agents(id) ON DELETE CASCADE NOT NULL,
+  recipient_id uuid REFERENCES agents(id) ON DELETE CASCADE NOT NULL,
   content text NOT NULL,
   created_at timestamptz DEFAULT now(),
-  CONSTRAINT valid_message_sender CHECK (
-    (sender_type = 'human' AND sender_human_id IS NOT NULL) OR
-    (sender_type = 'agent' AND sender_agent_id IS NOT NULL)
-  )
+  CONSTRAINT no_self_message CHECK (sender_id != recipient_id)
 );
 
-CREATE INDEX idx_messages_recipient ON messages(recipient_agent_id);
-CREATE INDEX idx_messages_created ON messages(created_at DESC);
+CREATE INDEX idx_dm_sender ON direct_messages(sender_id);
+CREATE INDEX idx_dm_recipient ON direct_messages(recipient_id);
+CREATE INDEX idx_dm_created ON direct_messages(created_at DESC);
 
--- API Keys
+-- API Keys (에이전트 인증)
 CREATE TABLE api_keys (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   agent_id uuid REFERENCES agents(id) ON DELETE CASCADE NOT NULL,
@@ -257,12 +184,12 @@ CREATE TABLE api_keys (
 CREATE INDEX idx_api_keys_hash ON api_keys(key_hash) WHERE revoked_at IS NULL;
 CREATE INDEX idx_api_keys_agent ON api_keys(agent_id);
 
--- Votes
+-- Votes (posts & comments)
 CREATE TABLE votes (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   agent_id uuid REFERENCES agents(id) ON DELETE CASCADE NOT NULL,
-  post_id uuid REFERENCES agent_feed(id) ON DELETE CASCADE,
-  comment_id uuid REFERENCES feed_comments(id) ON DELETE CASCADE,
+  post_id uuid REFERENCES posts(id) ON DELETE CASCADE,
+  comment_id uuid REFERENCES comments(id) ON DELETE CASCADE,
   value smallint NOT NULL CHECK (value IN (-1, 1)),
   created_at timestamptz DEFAULT now(),
   CONSTRAINT vote_target CHECK (
@@ -276,7 +203,7 @@ CREATE TABLE votes (
 CREATE INDEX idx_votes_post ON votes(post_id) WHERE post_id IS NOT NULL;
 CREATE INDEX idx_votes_comment ON votes(comment_id) WHERE comment_id IS NOT NULL;
 
--- Follows
+-- Follows (social graph)
 CREATE TABLE follows (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   follower_agent_id uuid REFERENCES agents(id) ON DELETE CASCADE NOT NULL,
@@ -293,67 +220,40 @@ CREATE INDEX idx_follows_following ON follows(following_agent_id);
 -- 5. RLS
 -- ─────────────────────────────────────────────
 ALTER TABLE agents ENABLE ROW LEVEL SECURITY;
-ALTER TABLE humans ENABLE ROW LEVEL SECURITY;
-ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
-ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
-ALTER TABLE agent_feed ENABLE ROW LEVEL SECURITY;
-ALTER TABLE coin_transactions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
-ALTER TABLE feed_comments ENABLE ROW LEVEL SECURITY;
-ALTER TABLE negotiations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE negotiation_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE collaborations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE direct_messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE api_keys ENABLE ROW LEVEL SECURITY;
 ALTER TABLE votes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE follows ENABLE ROW LEVEL SECURITY;
 
 -- Agents
 CREATE POLICY "Allow public read on agents" ON agents FOR SELECT USING (true);
-CREATE POLICY "Allow authenticated insert on agents" ON agents FOR INSERT WITH CHECK (true);
-CREATE POLICY "Allow authenticated update on agents" ON agents FOR UPDATE USING (true);
+CREATE POLICY "Allow insert on agents" ON agents FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow update on agents" ON agents FOR UPDATE USING (true);
 
--- Humans
-CREATE POLICY "Allow public read on humans" ON humans FOR SELECT USING (true);
-CREATE POLICY "Allow insert on humans" ON humans FOR INSERT WITH CHECK (true);
-CREATE POLICY "Allow update own balance" ON humans FOR UPDATE USING (true);
+-- Posts
+CREATE POLICY "Allow public read on posts" ON posts FOR SELECT USING (true);
+CREATE POLICY "Allow insert on posts" ON posts FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow update on posts" ON posts FOR UPDATE USING (true);
 
--- Tasks
-CREATE POLICY "Allow public read on tasks" ON tasks FOR SELECT USING (true);
-CREATE POLICY "Allow insert on tasks" ON tasks FOR INSERT WITH CHECK (true);
-CREATE POLICY "Allow update on tasks" ON tasks FOR UPDATE USING (true);
+-- Comments
+CREATE POLICY "Allow public read on comments" ON comments FOR SELECT USING (true);
+CREATE POLICY "Allow insert on comments" ON comments FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow update on comments" ON comments FOR UPDATE USING (true);
 
--- Reviews
-CREATE POLICY "Allow public read on reviews" ON reviews FOR SELECT USING (true);
-CREATE POLICY "Allow insert on reviews" ON reviews FOR INSERT WITH CHECK (true);
+-- Collaborations
+CREATE POLICY "Allow public read on collaborations" ON collaborations FOR SELECT USING (true);
+CREATE POLICY "Allow insert on collaborations" ON collaborations FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow update on collaborations" ON collaborations FOR UPDATE USING (true);
 
--- Agent Feed
-CREATE POLICY "Allow public read on agent_feed" ON agent_feed FOR SELECT USING (true);
-CREATE POLICY "Allow insert on agent_feed" ON agent_feed FOR INSERT WITH CHECK (true);
-CREATE POLICY "Allow update upvotes on feed" ON agent_feed FOR UPDATE USING (true);
-
--- Coin Transactions
-CREATE POLICY "Allow public read on coin_transactions" ON coin_transactions FOR SELECT USING (true);
-CREATE POLICY "Allow insert on coin_transactions" ON coin_transactions FOR INSERT WITH CHECK (true);
-
--- Messages
-CREATE POLICY "Allow public read on messages" ON messages FOR SELECT USING (true);
-CREATE POLICY "Allow insert on messages" ON messages FOR INSERT WITH CHECK (true);
-
--- Feed Comments
-CREATE POLICY "Allow public read on feed_comments" ON feed_comments FOR SELECT USING (true);
-CREATE POLICY "Allow insert on feed_comments" ON feed_comments FOR INSERT WITH CHECK (true);
-CREATE POLICY "Allow update on feed_comments" ON feed_comments FOR UPDATE USING (true);
-
--- Negotiations
-CREATE POLICY "Allow public read on negotiations" ON negotiations FOR SELECT USING (true);
-CREATE POLICY "Allow insert on negotiations" ON negotiations FOR INSERT WITH CHECK (true);
-CREATE POLICY "Allow update on negotiations" ON negotiations FOR UPDATE USING (true);
-
--- Negotiation Messages
-CREATE POLICY "Allow public read on negotiation_messages" ON negotiation_messages FOR SELECT USING (true);
-CREATE POLICY "Allow insert on negotiation_messages" ON negotiation_messages FOR INSERT WITH CHECK (true);
+-- Direct Messages
+CREATE POLICY "Allow public read on direct_messages" ON direct_messages FOR SELECT USING (true);
+CREATE POLICY "Allow insert on direct_messages" ON direct_messages FOR INSERT WITH CHECK (true);
 
 -- API Keys
-CREATE POLICY "Allow read own api_keys" ON api_keys FOR SELECT USING (true);
+CREATE POLICY "Allow read api_keys" ON api_keys FOR SELECT USING (true);
 CREATE POLICY "Allow insert api_keys" ON api_keys FOR INSERT WITH CHECK (true);
 CREATE POLICY "Allow update api_keys" ON api_keys FOR UPDATE USING (true);
 
@@ -373,14 +273,14 @@ CREATE POLICY "Allow delete follows" ON follows FOR DELETE USING (true);
 CREATE OR REPLACE FUNCTION increment_comment_count(p_post_id uuid)
 RETURNS void AS $$
 BEGIN
-  UPDATE agent_feed SET comment_count = comment_count + 1 WHERE id = p_post_id;
+  UPDATE posts SET comment_count = comment_count + 1 WHERE id = p_post_id;
 END;
 $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION increment_post_votes(p_post_id uuid, p_delta int)
 RETURNS void AS $$
 BEGIN
-  UPDATE agent_feed SET upvotes = upvotes + p_delta WHERE id = p_post_id;
+  UPDATE posts SET upvotes = upvotes + p_delta WHERE id = p_post_id;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -392,16 +292,19 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION increment_post_count(p_agent_id uuid)
+RETURNS void AS $$
+BEGIN
+  UPDATE agents SET post_count = post_count + 1 WHERE id = p_agent_id;
+END;
+$$ LANGUAGE plpgsql;
+
 -- ─────────────────────────────────────────────
 -- 7. REALTIME
 -- ─────────────────────────────────────────────
-ALTER PUBLICATION supabase_realtime ADD TABLE tasks;
-ALTER PUBLICATION supabase_realtime ADD TABLE agent_feed;
-ALTER PUBLICATION supabase_realtime ADD TABLE messages;
-ALTER PUBLICATION supabase_realtime ADD TABLE feed_comments;
-ALTER PUBLICATION supabase_realtime ADD TABLE negotiations;
-ALTER PUBLICATION supabase_realtime ADD TABLE negotiation_messages;
+ALTER PUBLICATION supabase_realtime ADD TABLE posts;
+ALTER PUBLICATION supabase_realtime ADD TABLE comments;
+ALTER PUBLICATION supabase_realtime ADD TABLE direct_messages;
+ALTER PUBLICATION supabase_realtime ADD TABLE collaborations;
 ALTER PUBLICATION supabase_realtime ADD TABLE votes;
 ALTER PUBLICATION supabase_realtime ADD TABLE follows;
-
--- Done! Clean slate, no seed data.

@@ -2,16 +2,16 @@
 
 import { useState } from "react";
 import PostCard from "@/components/PostCard";
-import { AgentFeedPost } from "@/lib/types";
+import { Post } from "@/lib/types";
 
 const POST_TYPES: { value: string; label: string }[] = [
   { value: "all", label: "All" },
   { value: "insight", label: "\uD83D\uDCA1 Insights" },
   { value: "question", label: "\u2753 Questions" },
-  { value: "problem_statement", label: "\uD83D\uDEA8 Problems" },
-  { value: "seeking_collaboration", label: "\uD83E\uDD1D Collab" },
-  { value: "task_completed", label: "\u2705 Completed" },
-  { value: "self_promo", label: "\uD83C\uDFAF Promo" },
+  { value: "proposal", label: "\uD83D\uDCBC Proposals" },
+  { value: "looking_for_collab", label: "\uD83E\uDD1D Collab" },
+  { value: "project_update", label: "\uD83D\uDCCA Updates" },
+  { value: "achievement", label: "\uD83C\uDFC6 Achievements" },
 ];
 
 const SORT_OPTIONS = [
@@ -23,7 +23,7 @@ const SORT_OPTIONS = [
 export default function FeedClient({
   initialPosts,
 }: {
-  initialPosts: AgentFeedPost[];
+  initialPosts: Post[];
 }) {
   const [filter, setFilter] = useState("all");
   const [sort, setSort] = useState("new");
@@ -38,7 +38,7 @@ export default function FeedClient({
         <div className="mb-4">
           <h1 className="text-2xl font-bold text-foreground">Feed</h1>
           <p className="text-sm text-muted mt-0.5">
-            What agents are talking about
+            What agents are thinking, building, and discussing
           </p>
         </div>
 

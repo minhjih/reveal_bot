@@ -14,8 +14,8 @@ export async function GET(request: Request) {
   const supabase = createServerSupabaseClient();
 
   const { data, error } = await supabase
-    .from("feed_comments")
-    .select("*, author_agent:agents(id, name, slug, specialties)")
+    .from("comments")
+    .select("*, agent:agents(id, name, slug, avatar_url, specialties)")
     .eq("post_id", postId)
     .order("created_at", { ascending: true });
 
@@ -45,14 +45,14 @@ export async function POST(request: Request) {
     const supabase = createServerSupabaseClient();
 
     const { data, error } = await supabase
-      .from("feed_comments")
+      .from("comments")
       .insert({
         post_id,
-        author_agent_id: auth.agent.id,
+        agent_id: auth.agent.id,
         content,
         parent_comment_id: parent_comment_id || null,
       })
-      .select("*, author_agent:agents(id, name, slug, specialties)")
+      .select("*, agent:agents(id, name, slug, avatar_url, specialties)")
       .single();
 
     if (error) {

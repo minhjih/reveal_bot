@@ -2,9 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import AgentAvatar from "@/components/AgentAvatar";
-import ReputationBadge from "@/components/ReputationBadge";
 import SpecialtyBadge from "@/components/SpecialtyBadge";
-import ReviewCard from "@/components/ReviewCard";
 import PostCard from "@/components/PostCard";
 
 export const dynamic = "force-dynamic";
@@ -24,69 +22,63 @@ export default async function AgentProfilePage({
 
   if (!agent) notFound();
 
-  const { data: reviews } = await supabase
-    .from("reviews")
-    .select("*, reviewer_human:humans(*), reviewer_agent:agents(*), task:tasks(*)")
-    .eq("reviewed_agent_id", agent.id)
-    .order("created_at", { ascending: false })
-    .limit(3);
-
   const { data: posts } = await supabase
-    .from("agent_feed")
-    .select("*, agent:agents(*)")
+    .from("posts")
+    .select("*, agent:agents(id, name, slug, avatar_url, headline, specialties, karma)")
     .eq("agent_id", agent.id)
     .order("created_at", { ascending: false })
-    .limit(3);
+    .limit(10);
+
+  const { data: collabs } = await supabase
+    .from("collaborations")
+    .select("*")
+    .contains("member_ids", [agent.id])
+    .order("created_at", { ascending: false })
+    .limit(5);
 
   return (
     <div className="space-y-8">
-      {/* Header */}
+      {/* Profile Header */}
       <div className="card">
         <div className="flex flex-col sm:flex-row items-start gap-6">
           <AgentAvatar name={agent.name} specialties={agent.specialties} size={80} />
           <div className="flex-1">
-            <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-2xl font-bold text-foreground">{agent.name}</h1>
-              <span className={`text-xs px-2 py-0.5 rounded-full ${agent.is_available ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-red-500/10 text-red-400 border border-red-500/20"}`}>
-                {agent.is_available ? "Available" : "Busy"}
-              </span>
-            </div>
+            <h1 className="text-2xl font-bold text-foreground mb-1">{agent.name}</h1>
+            {agent.headline && (
+              <p className="text-sm text-cyan mb-2">{agent.headline}</p>
+            )}
             <p className="text-muted mb-3">{agent.bio}</p>
             <div className="flex flex-wrap gap-1.5 mb-4">
               {agent.specialties.map((s: string) => (
                 <SpecialtyBadge key={s} specialty={s} />
               ))}
             </div>
-            <div className="flex items-center gap-6 text-sm text-muted">
+            <div className="flex items-center gap-4 text-sm text-muted">
               <span>Model: <span className="text-foreground">{agent.model_type}</span></span>
-              <span>Rate: <span className="text-yellow-400">{agent.hourly_rate} coins/hr</span></span>
+              <span>Joined {new Date(agent.created_at).toLocaleDateString()}</span>
             </div>
-          </div>
-          <div className="flex flex-col items-center gap-2">
-            <ReputationBadge score={agent.reputation_score} size={80} />
-            <span className="text-xs text-muted">Reputation</span>
           </div>
         </div>
       </div>
 
-      {/* Stats + Hire */}
+      {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="card text-center">
-          <div className="text-2xl font-bold text-cyan">{agent.completed_tasks}</div>
-          <div className="text-xs text-muted mt-1">Tasks Completed</div>
+          <div className="text-2xl font-bold text-cyan">{agent.karma}</div>
+          <div className="text-xs text-muted mt-1">Karma</div>
         </div>
         <div className="card text-center">
-          <div className="text-2xl font-bold text-purple-light">{agent.reputation_score}</div>
-          <div className="text-xs text-muted mt-1">Reputation Score</div>
+          <div className="text-2xl font-bold text-purple-light">{agent.post_count}</div>
+          <div className="text-xs text-muted mt-1">Posts</div>
         </div>
         <div className="card text-center">
-          <div className="text-2xl font-bold text-yellow-400">{agent.hourly_rate}</div>
-          <div className="text-xs text-muted mt-1">Coins / Hour</div>
+          <div className="text-2xl font-bold text-foreground">{agent.follower_count}</div>
+          <div className="text-xs text-muted mt-1">Followers</div>
         </div>
-        <Link href={`/hire/${agent.slug}`} className="card text-center hover:border-cyan/40 flex flex-col items-center justify-center">
-          <div className="text-2xl mb-1">&#128172;</div>
-          <div className="text-sm font-semibold text-cyan">Send Message</div>
-        </Link>
+        <div className="card text-center">
+          <div className="text-2xl font-bold text-amber-400">{agent.collab_count}</div>
+          <div className="text-xs text-muted mt-1">Collaborations</div>
+        </div>
       </div>
 
       {/* Agent Card (A2A Protocol) */}
@@ -109,10 +101,12 @@ export default async function AgentProfilePage({
           <div>
             <h3 className="text-sm font-medium text-muted mb-2">Skills</h3>
             <div className="space-y-2">
-              {(agent.agent_card?.skills ?? []).map((skill: { id: string; name: string; description: string }) => (
+              {(agent.agent_card?.skills ?? []).map((skill: { id: string; name: string; description?: string }) => (
                 <div key={skill.id} className="bg-background/50 rounded-lg p-2">
                   <div className="text-sm font-medium text-foreground">{skill.name}</div>
-                  <div className="text-xs text-muted">{skill.description}</div>
+                  {skill.description && (
+                    <div className="text-xs text-muted">{skill.description}</div>
+                  )}
                 </div>
               ))}
             </div>
@@ -120,38 +114,53 @@ export default async function AgentProfilePage({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Reviews */}
+      {/* Collaborations */}
+      {(collabs ?? []).length > 0 && (
         <div>
           <h2 className="text-lg font-semibold text-foreground mb-4">
-            Recent Reviews ({(reviews ?? []).length})
+            Collaborations ({(collabs ?? []).length})
           </h2>
-          {(reviews ?? []).length > 0 ? (
-            <div className="space-y-3">
-              {(reviews ?? []).map((review) => (
-                <ReviewCard key={review.id} review={review} />
-              ))}
-            </div>
-          ) : (
-            <p className="text-muted text-sm">No reviews yet.</p>
-          )}
+          <div className="space-y-3">
+            {(collabs ?? []).map((collab) => (
+              <div key={collab.id} className="card">
+                <div className="flex items-center gap-3">
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${
+                    collab.status === "active" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" :
+                    collab.status === "completed" ? "bg-cyan/10 text-cyan border border-cyan/20" :
+                    "bg-white/5 text-muted border border-white/10"
+                  }`}>
+                    {collab.status}
+                  </span>
+                  <h3 className="font-medium text-foreground">{collab.title}</h3>
+                </div>
+                {collab.description && (
+                  <p className="text-sm text-muted mt-2">{collab.description}</p>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
+      )}
 
-        {/* Posts */}
-        <div>
-          <h2 className="text-lg font-semibold text-foreground mb-4">
-            Recent Posts ({(posts ?? []).length})
+      {/* Recent Posts */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-foreground">
+            Posts ({(posts ?? []).length})
           </h2>
-          {(posts ?? []).length > 0 ? (
-            <div className="space-y-3">
-              {(posts ?? []).map((post) => (
-                <PostCard key={post.id} post={post} />
-              ))}
-            </div>
-          ) : (
-            <p className="text-muted text-sm">No posts yet.</p>
-          )}
+          <Link href={`/feed?agent=${agent.slug}`} className="text-sm text-cyan hover:underline">
+            View all
+          </Link>
         </div>
+        {(posts ?? []).length > 0 ? (
+          <div className="space-y-3">
+            {(posts ?? []).map((post) => (
+              <PostCard key={post.id} post={post} />
+            ))}
+          </div>
+        ) : (
+          <p className="text-muted text-sm">No posts yet.</p>
+        )}
       </div>
     </div>
   );

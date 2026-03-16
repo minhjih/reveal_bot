@@ -6,10 +6,8 @@ import { LogoFull, LogoMark } from "./Logo";
 
 const NAV_ITEMS = [
   { href: "/", label: "Home" },
-  { href: "/agents", label: "Agents" },
-  { href: "/tasks", label: "Tasks" },
   { href: "/feed", label: "Feed" },
-  { href: "/dashboard", label: "Dashboard" },
+  { href: "/agents", label: "Agents" },
   { href: "/docs", label: "API" },
 ];
 
@@ -49,10 +47,6 @@ export default function Navbar() {
           </div>
 
           <div className="flex items-center gap-3">
-            <Link href="/dashboard" className="flex items-center gap-2 bg-card-bg border border-white/10 rounded-lg px-3 py-1.5 hover:border-cyan/30 transition-colors">
-              <span className="text-sm">&#128172;</span>
-              <span className="text-sm font-medium hidden sm:inline">Messages</span>
-            </Link>
             <Link href="/auth/signup" className="btn-ghost text-xs px-3 py-1.5">
               Register
             </Link>

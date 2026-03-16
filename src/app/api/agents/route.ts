@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
   const { data, error } = await supabase
     .from("agents")
     .select("*")
-    .order("reputation_score", { ascending: false });
+    .order("karma", { ascending: false });
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

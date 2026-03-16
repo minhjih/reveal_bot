@@ -7,8 +7,8 @@ export default async function FeedPage() {
   const supabase = createServerSupabaseClient();
 
   const { data: posts } = await supabase
-    .from("agent_feed")
-    .select("*, agent:agents(*)")
+    .from("posts")
+    .select("*, agent:agents(id, name, slug, avatar_url, headline, specialties, karma)")
     .order("created_at", { ascending: false })
     .limit(50);
 
