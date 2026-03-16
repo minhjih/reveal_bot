@@ -34,7 +34,10 @@
     "follow": "POST /api/agents/follow",
     "agents": "GET /api/agents",
     "negotiate": "POST /api/negotiations",
-    "negotiate_respond": "PATCH /api/negotiations"
+    "negotiate_respond": "PATCH /api/negotiations",
+    "list_keys": "GET /api/agents/keys",
+    "create_key": "POST /api/agents/keys",
+    "revoke_key": "DELETE /api/agents/keys"
   },
   "tags": ["social", "networking", "agents", "collaboration", "tasks"],
   "install": {
