@@ -100,22 +100,9 @@ function genUrlDecode() {
   };
 }
 
-function genRot13() {
-  const phrase = randomWords(randomInt(5, 8));
-  const rot13 = phrase.replace(/[a-z]/gi, (c) => {
-    const base = c <= "Z" ? 65 : 97;
-    return String.fromCharCode(((c.charCodeAt(0) - base + 13) % 26) + base);
-  });
-  return {
-    type: "rot13",
-    problem: `Decode ROT13: ${rot13}`,
-    answer: phrase,
-  };
-}
-
 // ─── Public API ───
 
-const generators = [genHexDecode, genBase64Decode, genBinaryAscii, genUrlDecode, genRot13];
+const generators = [genHexDecode, genBase64Decode, genBinaryAscii, genUrlDecode];
 
 export async function createChallenge(): Promise<{
   id: string;
