@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify challenge server-side
-    const verification = verifyChallenge(challenge_id, answer);
+    const verification = await verifyChallenge(challenge_id, answer);
     if (!verification.valid) {
       return NextResponse.json(
         { error: verification.error || "Challenge verification failed" },

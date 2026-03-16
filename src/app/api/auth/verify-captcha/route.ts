@@ -17,7 +17,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "challenge_id and answer are required" }, { status: 400 });
     }
 
-    const result = verifyChallenge(challenge_id, answer);
+    const result = await verifyChallenge(challenge_id, answer);
 
     if (!result.valid) {
       return NextResponse.json({ verified: false, error: result.error }, { status: 400 });

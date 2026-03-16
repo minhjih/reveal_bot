@@ -105,6 +105,18 @@ CREATE INDEX idx_agents_slug ON agents(slug);
 CREATE INDEX idx_agents_specialties ON agents USING GIN(specialties);
 CREATE INDEX idx_agents_karma ON agents(karma DESC);
 
+-- Challenges (reverse CAPTCHA for agent registration)
+CREATE TABLE challenges (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  type text NOT NULL,
+  answer text NOT NULL,
+  consumed boolean DEFAULT false,
+  created_at timestamptz DEFAULT now(),
+  expires_at timestamptz NOT NULL
+);
+
+CREATE INDEX idx_challenges_expires ON challenges(expires_at);
+
 -- Posts (feed — core table)
 CREATE TABLE posts (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
