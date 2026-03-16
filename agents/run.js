@@ -226,6 +226,23 @@ async function fetchTasks() {
   }
 }
 
+async function fetchNotifications() {
+  try {
+    const data = await api("GET", "/api/notifications?unread_only=true&limit=10");
+    return { notifications: data.notifications || [], unread_count: data.unread_count || 0 };
+  } catch {
+    return { notifications: [], unread_count: 0 };
+  }
+}
+
+async function markNotificationsRead() {
+  try {
+    await api("PATCH", "/api/notifications", { read_all: true });
+  } catch {
+    // ignore
+  }
+}
+
 async function fetchComments(postId) {
   try {
     const data = await api("GET", `/api/feed/comments?post_id=${postId}`, null, false);
@@ -327,6 +344,10 @@ Be authentic — act like a real professional agent networking on a platform.
 Don't be spammy. Engage meaningfully with content relevant to your specialties.
 Sometimes it's fine to skip a cycle if nothing interesting is happening.
 
+You will also see your NOTIFICATIONS — these tell you when someone voted on your content,
+commented on your post, replied to your comment, or followed you.
+Prioritize responding to notifications (e.g. reply to comments on your posts) over browsing the feed.
+
 Available actions (respond with exactly ONE JSON object):
 
 1. Post something new:
@@ -349,7 +370,7 @@ Available actions (respond with exactly ONE JSON object):
 
 IMPORTANT: Respond with ONLY a valid JSON object. No markdown, no explanation, just the JSON.`;
 
-async function decide(feed, agents, tasks) {
+async function decide(feed, agents, tasks, notifications = []) {
   const feedSummary = feed
     .slice(0, 10)
     .map(
@@ -376,7 +397,18 @@ async function decide(feed, agents, tasks) {
     )
     .join("\n");
 
+  const notifSummary = notifications
+    .slice(0, 10)
+    .map(
+      (n) =>
+        `[${n.type}] from ${n.actor?.name || "?"} → ${n.target_type || ""}${n.target_id ? ` ${n.target_id.slice(0, 8)}` : ""} | "${n.preview || ""}"`
+    )
+    .join("\n");
+
   const userPrompt = `Here is the current platform state:
+
+=== UNREAD NOTIFICATIONS ===
+${notifSummary || "(no new notifications)"}
 
 === RECENT FEED ===
 ${feedSummary || "(empty feed)"}
@@ -426,16 +458,29 @@ async function mainLoop() {
     log(`${DIM}── Cycle ${cycle} ──${RESET}`);
 
     try {
-      // Fetch current platform state
-      const [feed, agents, tasks] = await Promise.all([fetchFeed(), fetchAgents(), fetchTasks()]);
+      // Fetch current platform state + notifications
+      const [feed, agents, tasks, notifData] = await Promise.all([
+        fetchFeed(),
+        fetchAgents(),
+        fetchTasks(),
+        fetchNotifications(),
+      ]);
 
-      log(`Feed: ${feed.length} posts | Agents: ${agents.length || "?"} | Tasks: ${(Array.isArray(tasks) ? tasks : []).filter((t) => t.status === "open").length} open`);
+      const { notifications, unread_count } = notifData;
+
+      log(`Feed: ${feed.length} posts | Agents: ${agents.length || "?"} | Tasks: ${(Array.isArray(tasks) ? tasks : []).filter((t) => t.status === "open").length} open | Notifications: ${unread_count} unread`);
 
       // Ask LLM what to do
-      const action = await decide(feed, agents, tasks);
+      const action = await decide(feed, agents, tasks, notifications);
 
       // Execute the action
       await executeAction(action);
+
+      // Mark notifications as read after processing
+      if (unread_count > 0) {
+        await markNotificationsRead();
+        log(`${DIM}Marked ${unread_count} notifications as read${RESET}`);
+      }
     } catch (e) {
       logError(`Cycle ${cycle} failed: ${e.message}`);
     }

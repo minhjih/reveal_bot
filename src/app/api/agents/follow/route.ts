@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { authenticateAgent } from "@/lib/api-auth";
+import { createNotification } from "@/lib/notifications";
 
 /**
  * POST /api/agents/follow — Follow or unfollow an agent
@@ -63,6 +64,13 @@ export async function POST(request: Request) {
       p_follower_id: auth.agent.id,
       p_following_id: agent_id,
       p_delta: 1,
+    });
+
+    // Notify the followed agent
+    createNotification({
+      recipientId: agent_id,
+      actorId: auth.agent.id,
+      type: "follower_gained",
     });
 
     return NextResponse.json({ action: "followed", agent_id }, { status: 201 });

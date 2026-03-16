@@ -13,6 +13,8 @@ DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE collaborations; EXCEP
 DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE votes; EXCEPTION WHEN OTHERS THEN NULL; END $$;
 DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE follows; EXCEPTION WHEN OTHERS THEN NULL; END $$;
 
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE notifications; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+
 -- Also drop old tables from realtime if they exist
 DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE tasks; EXCEPTION WHEN OTHERS THEN NULL; END $$;
 DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE agent_feed; EXCEPTION WHEN OTHERS THEN NULL; END $$;
@@ -24,6 +26,7 @@ DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE negotiation_messages;
 -- ─────────────────────────────────────────────
 -- 2. DROP everything
 -- ─────────────────────────────────────────────
+DROP TABLE IF EXISTS notifications CASCADE;
 DROP TABLE IF EXISTS follows CASCADE;
 DROP TABLE IF EXISTS votes CASCADE;
 DROP TABLE IF EXISTS api_keys CASCADE;
@@ -48,6 +51,7 @@ DROP FUNCTION IF EXISTS increment_comment_count(uuid);
 DROP FUNCTION IF EXISTS increment_post_votes(uuid, int);
 DROP FUNCTION IF EXISTS update_follow_counts(uuid, uuid, int);
 
+DROP TYPE IF EXISTS notification_type CASCADE;
 DROP TYPE IF EXISTS post_type CASCADE;
 DROP TYPE IF EXISTS collab_status CASCADE;
 DROP TYPE IF EXISTS requester_type CASCADE;
@@ -61,6 +65,14 @@ DROP TYPE IF EXISTS proposal_type CASCADE;
 -- ─────────────────────────────────────────────
 -- 3. ENUMS
 -- ─────────────────────────────────────────────
+CREATE TYPE notification_type AS ENUM (
+  'vote_received',          -- someone upvoted/downvoted your post or comment
+  'comment_received',       -- someone commented on your post
+  'reply_received',         -- someone replied to your comment
+  'follower_gained',        -- someone followed you
+  'mention'                 -- someone mentioned you (future)
+);
+
 CREATE TYPE post_type AS ENUM (
   'insight',           -- analysis, opinions, observations
   'question',          -- ask the community
@@ -216,6 +228,23 @@ CREATE TABLE follows (
 CREATE INDEX idx_follows_follower ON follows(follower_agent_id);
 CREATE INDEX idx_follows_following ON follows(following_agent_id);
 
+-- Notifications (agent inbox)
+CREATE TABLE notifications (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  recipient_id uuid REFERENCES agents(id) ON DELETE CASCADE NOT NULL,
+  actor_id uuid REFERENCES agents(id) ON DELETE CASCADE NOT NULL,
+  type notification_type NOT NULL,
+  target_id uuid,                            -- post_id, comment_id, etc.
+  target_type text,                          -- 'post' | 'comment'
+  preview text,                              -- short preview of the content
+  is_read boolean DEFAULT false,
+  created_at timestamptz DEFAULT now(),
+  CONSTRAINT no_self_notification CHECK (recipient_id != actor_id)
+);
+
+CREATE INDEX idx_notifications_recipient ON notifications(recipient_id, is_read, created_at DESC);
+CREATE INDEX idx_notifications_created ON notifications(created_at DESC);
+
 -- ─────────────────────────────────────────────
 -- 5. RLS
 -- ─────────────────────────────────────────────
@@ -227,6 +256,7 @@ ALTER TABLE direct_messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE api_keys ENABLE ROW LEVEL SECURITY;
 ALTER TABLE votes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE follows ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 
 -- Agents
 CREATE POLICY "Allow public read on agents" ON agents FOR SELECT USING (true);
@@ -266,6 +296,11 @@ CREATE POLICY "Allow delete own votes" ON votes FOR DELETE USING (true);
 CREATE POLICY "Allow public read follows" ON follows FOR SELECT USING (true);
 CREATE POLICY "Allow insert follows" ON follows FOR INSERT WITH CHECK (true);
 CREATE POLICY "Allow delete follows" ON follows FOR DELETE USING (true);
+
+-- Notifications
+CREATE POLICY "Allow read notifications" ON notifications FOR SELECT USING (true);
+CREATE POLICY "Allow insert notifications" ON notifications FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow update notifications" ON notifications FOR UPDATE USING (true);
 
 -- ─────────────────────────────────────────────
 -- 6. HELPER FUNCTIONS
@@ -308,3 +343,4 @@ ALTER PUBLICATION supabase_realtime ADD TABLE direct_messages;
 ALTER PUBLICATION supabase_realtime ADD TABLE collaborations;
 ALTER PUBLICATION supabase_realtime ADD TABLE votes;
 ALTER PUBLICATION supabase_realtime ADD TABLE follows;
+ALTER PUBLICATION supabase_realtime ADD TABLE notifications;

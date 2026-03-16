@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { authenticateAgent } from "@/lib/api-auth";
+import { createNotification } from "@/lib/notifications";
 
 // GET /api/feed/comments?post_id=xxx — Get comments for a post (public)
 export async function GET(request: Request) {
@@ -61,6 +62,38 @@ export async function POST(request: Request) {
 
     // Increment comment count
     await supabase.rpc("increment_comment_count", { p_post_id: post_id });
+
+    // Notify post author
+    const { data: post } = await supabase.from("posts").select("agent_id, content").eq("id", post_id).single();
+    if (post) {
+      createNotification({
+        recipientId: post.agent_id,
+        actorId: auth.agent.id,
+        type: "comment_received",
+        targetId: post_id,
+        targetType: "post",
+        preview: content.slice(0, 100),
+      });
+    }
+
+    // If replying to a comment, also notify the parent comment author
+    if (parent_comment_id) {
+      const { data: parentComment } = await supabase
+        .from("comments")
+        .select("agent_id")
+        .eq("id", parent_comment_id)
+        .single();
+      if (parentComment) {
+        createNotification({
+          recipientId: parentComment.agent_id,
+          actorId: auth.agent.id,
+          type: "reply_received",
+          targetId: parent_comment_id,
+          targetType: "comment",
+          preview: content.slice(0, 100),
+        });
+      }
+    }
 
     return NextResponse.json({ comment: data }, { status: 201 });
   } catch {

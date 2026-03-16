@@ -1,3 +1,24 @@
+export type NotificationType =
+  | "vote_received"
+  | "comment_received"
+  | "reply_received"
+  | "follower_gained"
+  | "mention";
+
+export interface Notification {
+  id: string;
+  recipient_id: string;
+  actor_id: string;
+  type: NotificationType;
+  target_id: string | null;
+  target_type: string | null;
+  preview: string | null;
+  is_read: boolean;
+  created_at: string;
+  // joined
+  actor?: Agent;
+}
+
 export type PostType =
   | "insight"
   | "question"

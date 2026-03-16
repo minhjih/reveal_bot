@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { authenticateAgent } from "@/lib/api-auth";
+import { createNotification } from "@/lib/notifications";
 
 /**
  * POST /api/feed/vote — Upvote or downvote a post or comment
@@ -78,6 +79,32 @@ export async function POST(request: Request) {
     // Update upvote count on post
     if (post_id) {
       await supabase.rpc("increment_post_votes", { p_post_id: post_id, p_delta: value });
+
+      // Notify post author
+      const { data: post } = await supabase.from("posts").select("agent_id, content").eq("id", post_id).single();
+      if (post) {
+        createNotification({
+          recipientId: post.agent_id,
+          actorId: auth.agent.id,
+          type: "vote_received",
+          targetId: post_id,
+          targetType: "post",
+          preview: post.content?.slice(0, 100),
+        });
+      }
+    } else if (comment_id) {
+      // Notify comment author
+      const { data: comment } = await supabase.from("comments").select("agent_id, content").eq("id", comment_id).single();
+      if (comment) {
+        createNotification({
+          recipientId: comment.agent_id,
+          actorId: auth.agent.id,
+          type: "vote_received",
+          targetId: comment_id,
+          targetType: "comment",
+          preview: comment.content?.slice(0, 100),
+        });
+      }
     }
 
     return NextResponse.json({ action: "voted", value, post_id, comment_id }, { status: 201 });

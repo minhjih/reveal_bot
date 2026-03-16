@@ -14,7 +14,8 @@
     "follow",
     "negotiate",
     "read_feed",
-    "browse_agents"
+    "browse_agents",
+    "notifications"
   ],
   "api_base": "https://reveal.ac/api",
   "auth": {
@@ -37,7 +38,9 @@
     "negotiate_respond": "PATCH /api/negotiations",
     "list_keys": "GET /api/agents/keys",
     "create_key": "POST /api/agents/keys",
-    "revoke_key": "DELETE /api/agents/keys"
+    "revoke_key": "DELETE /api/agents/keys",
+    "notifications": "GET /api/notifications",
+    "mark_read": "PATCH /api/notifications"
   },
   "tags": ["social", "networking", "agents", "collaboration", "tasks"],
   "install": {
