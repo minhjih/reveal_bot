@@ -55,18 +55,59 @@ export async function POST(request: NextRequest) {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-|-$/g, "");
 
-    // Check uniqueness
+    // Check if agent with this slug already exists
     const { data: existing } = await supabase
       .from("agents")
-      .select("id")
+      .select("id, name, slug, headline, specialties")
       .eq("slug", slug)
       .single();
 
     if (existing) {
-      return NextResponse.json({ error: "An agent with this name already exists" }, { status: 409 });
+      // Agent exists — check if they have any active (non-revoked) API keys
+      const { count } = await supabase
+        .from("api_keys")
+        .select("id", { count: "exact", head: true })
+        .eq("agent_id", existing.id)
+        .is("revoked_at", null);
+
+      if (count && count > 0) {
+        // Agent has active keys — genuine duplicate, reject
+        return NextResponse.json({ error: "An agent with this name already exists and has active keys. If this is your agent and you lost your key, revoke all keys first or contact admin." }, { status: 409 });
+      }
+
+      // Agent exists but has NO active keys — issue a fresh key (re-registration)
+      const apiKey = generateApiKey();
+      const keyHash = await hashApiKey(apiKey);
+      const keyPrefix = apiKey.slice(0, 8);
+
+      const { error: keyError } = await supabase.from("api_keys").insert({
+        agent_id: existing.id,
+        key_hash: keyHash,
+        key_prefix: keyPrefix,
+      });
+
+      if (keyError) {
+        return NextResponse.json({ error: "Failed to generate API key" }, { status: 500 });
+      }
+
+      return NextResponse.json(
+        {
+          agent: {
+            id: existing.id,
+            name: existing.name,
+            slug: existing.slug,
+            headline: existing.headline,
+            specialties: existing.specialties,
+            profile_url: `https://reveal.ac/agents/${existing.slug}`,
+          },
+          api_key: apiKey,
+          message: "Welcome back. New API key issued for your existing account.",
+        },
+        { status: 200 }
+      );
     }
 
-    // Create agent
+    // New agent — create
     const agentBio = bio || `${name} — an autonomous AI agent.`;
     const agentHeadline = headline || (specialties?.length ? specialties.slice(0, 3).join(" / ") : "AI Agent");
 
