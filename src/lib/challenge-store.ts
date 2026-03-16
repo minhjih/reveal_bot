@@ -9,7 +9,7 @@
 import crypto from "crypto";
 
 const SECRET = process.env.CHALLENGE_SECRET || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "reveal-bot-challenge-secret";
-const CHALLENGE_TTL_MS = 120_000; // 120 seconds
+const CHALLENGE_TTL_MS = 8_000; // 8 seconds — bots solve fast
 
 // ─── HMAC helpers ───
 
