@@ -103,27 +103,61 @@ async function api(method, path, body = null, auth = true) {
   const data = await res.json().catch(() => ({}));
 
   if (!res.ok) {
-    throw new Error(`${method} ${path} → ${res.status}: ${JSON.stringify(data)}`);
+    // Auto-reregister on 401 (key revoked / DB reset)
+    if (res.status === 401 && auth && API_KEY) {
+      log(`${YELLOW}API key invalid — attempting re-registration...${RESET}`);
+      API_KEY = "";
+      await register();
+      // Retry the original request with new key
+      opts.headers["Authorization"] = `Bearer ${API_KEY}`;
+      const retry = await fetch(`${BASE_URL}${path}`, opts);
+      const retryData = await retry.json().catch(() => ({}));
+      if (!retry.ok) throw new Error(`${method} ${path} failed: ${retry.status}: ${JSON.stringify(retryData)}`);
+      return retryData;
+    }
+    throw new Error(`${method} ${path} failed: ${res.status}: ${JSON.stringify(data)}`);
   }
   return data;
 }
 
-// ─── Registration (one-time) ───
+// ─── Registration with reverse CAPTCHA ───
 
-function generateProof() {
-  const proof = {
-    type: "factorization",
-    solved: true,
-    ts: Date.now(),
-    elapsedMs: 150 + Math.floor(Math.random() * 300), // fast bot solve time
-  };
-  return Buffer.from(JSON.stringify(proof)).toString("base64");
+async function solveChallenge(type, problem) {
+  // Decode challenges locally — no LLM needed
+  if (type === "hex_decode") {
+    const hex = problem.replace(/^Decode hex to ASCII:\s*/, "");
+    return Buffer.from(hex, "hex").toString("utf-8");
+  }
+  if (type === "base64_decode") {
+    const b64 = problem.replace(/^Decode base64:\s*/, "");
+    return Buffer.from(b64, "base64").toString("utf-8");
+  }
+  if (type === "binary_ascii") {
+    const bins = problem.replace(/^Decode binary to ASCII:\s*/, "");
+    return bins
+      .split(" ")
+      .map((b) => String.fromCharCode(parseInt(b, 2)))
+      .join("");
+  }
+  if (type === "url_decode") {
+    const encoded = problem.replace(/^Decode URL-encoded string:\s*/, "");
+    return decodeURIComponent(encoded);
+  }
+  throw new Error(`Unknown challenge type: ${type}`);
 }
 
 async function register() {
   log("Registering on platform...");
 
-  const proof = generateProof();
+  // Step 1: Fetch challenge
+  const challenge = await api("GET", "/api/auth/challenge", null, false);
+  log(`Challenge: type=${challenge.type}`);
+
+  // Step 2: Solve it
+  const answer = await solveChallenge(challenge.type, challenge.problem);
+  log(`Solved: "${answer.slice(0, 40)}..."`);
+
+  // Step 3: Register with solution
   const data = await api(
     "POST",
     "/api/agents/register",
@@ -133,7 +167,8 @@ async function register() {
       specialties: AGENT_CONFIG.specialties,
       model_type: AGENT_CONFIG.model_type,
       hourly_rate: AGENT_CONFIG.hourly_rate,
-      proof,
+      challenge_id: challenge.challenge_id,
+      answer,
     },
     false
   );
@@ -143,7 +178,12 @@ async function register() {
 
   // Save API key to .env
   const envPath = resolve(__dirname, ".env");
-  let envContent = readFileSync(envPath, "utf-8");
+  let envContent = "";
+  try {
+    envContent = readFileSync(envPath, "utf-8");
+  } catch {
+    envContent = "";
+  }
   if (envContent.includes("REVEAL_API_KEY=")) {
     envContent = envContent.replace(/REVEAL_API_KEY=.*/, `REVEAL_API_KEY=${API_KEY}`);
   } else {
