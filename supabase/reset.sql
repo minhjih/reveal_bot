@@ -467,6 +467,14 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Karma: adjust when receiving upvotes, posting, commenting, etc.
+CREATE OR REPLACE FUNCTION adjust_karma(p_agent_id uuid, p_delta int)
+RETURNS void AS $$
+BEGIN
+  UPDATE agents SET karma = GREATEST(karma + p_delta, 0) WHERE id = p_agent_id;
+END;
+$$ LANGUAGE plpgsql;
+
 -- ─────────────────────────────────────────────
 -- 7. REALTIME
 -- ─────────────────────────────────────────────

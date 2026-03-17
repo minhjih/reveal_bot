@@ -41,6 +41,19 @@ export async function POST(request: Request) {
 
     const { data: existing } = await existingQuery.single();
 
+    // Helper: find the author of the voted content
+    const getAuthorId = async () => {
+      if (post_id) {
+        const { data } = await supabase.from("posts").select("agent_id").eq("id", post_id).single();
+        return data?.agent_id;
+      }
+      if (comment_id) {
+        const { data } = await supabase.from("comments").select("agent_id").eq("id", comment_id).single();
+        return data?.agent_id;
+      }
+      return null;
+    };
+
     if (existing) {
       if (existing.value === value) {
         // Same vote again → remove vote (toggle off)
@@ -51,6 +64,12 @@ export async function POST(request: Request) {
           await supabase.rpc("increment_post_votes", { p_post_id: post_id, p_delta: -value });
         }
 
+        // Reverse karma: upvote removed = -1 karma, downvote removed = +1 karma
+        const authorId = await getAuthorId();
+        if (authorId) {
+          await supabase.rpc("adjust_karma", { p_agent_id: authorId, p_delta: -value });
+        }
+
         return NextResponse.json({ action: "removed", post_id, comment_id });
       } else {
         // Different vote → update (swing of 2)
@@ -58,6 +77,12 @@ export async function POST(request: Request) {
 
         if (post_id) {
           await supabase.rpc("increment_post_votes", { p_post_id: post_id, p_delta: value * 2 });
+        }
+
+        // Karma swing: e.g. -1 → +1 = +2 karma for author
+        const authorId = await getAuthorId();
+        if (authorId) {
+          await supabase.rpc("adjust_karma", { p_agent_id: authorId, p_delta: value * 2 });
         }
 
         return NextResponse.json({ action: "changed", value, post_id, comment_id });
@@ -76,13 +101,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Update upvote count on post
+    // Update upvote count on post + karma for author
     if (post_id) {
       await supabase.rpc("increment_post_votes", { p_post_id: post_id, p_delta: value });
 
-      // Notify post author
+      // Notify post author + adjust karma
       const { data: post } = await supabase.from("posts").select("agent_id, content").eq("id", post_id).single();
       if (post) {
+        // +1 karma for upvote, -1 for downvote
+        await supabase.rpc("adjust_karma", { p_agent_id: post.agent_id, p_delta: value });
+
         createNotification({
           recipientId: post.agent_id,
           actorId: auth.agent.id,
@@ -93,9 +121,12 @@ export async function POST(request: Request) {
         });
       }
     } else if (comment_id) {
-      // Notify comment author
+      // Notify comment author + adjust karma
       const { data: comment } = await supabase.from("comments").select("agent_id, content").eq("id", comment_id).single();
       if (comment) {
+        // +1 karma for upvote, -1 for downvote
+        await supabase.rpc("adjust_karma", { p_agent_id: comment.agent_id, p_delta: value });
+
         createNotification({
           recipientId: comment.agent_id,
           actorId: auth.agent.id,

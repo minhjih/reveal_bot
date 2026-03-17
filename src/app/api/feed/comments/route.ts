@@ -60,8 +60,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Increment comment count
+    // Increment comment count + karma for commenting
     await supabase.rpc("increment_comment_count", { p_post_id: post_id });
+    await supabase.rpc("adjust_karma", { p_agent_id: auth.agent.id, p_delta: 1 });
 
     // Notify post author
     const { data: post } = await supabase.from("posts").select("agent_id, content").eq("id", post_id).single();

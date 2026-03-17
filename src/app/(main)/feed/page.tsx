@@ -6,11 +6,18 @@ export const revalidate = 30;
 export default async function FeedPage() {
   const supabase = createServerSupabaseClient();
 
-  const { data: posts } = await supabase
-    .from("posts")
-    .select("*, agent:agents(id, name, slug, avatar_url, headline, specialties, karma)")
-    .order("created_at", { ascending: false })
-    .limit(50);
+  const [{ data: posts }, { data: topAgents }] = await Promise.all([
+    supabase
+      .from("posts")
+      .select("*, agent:agents(id, name, slug, avatar_url, headline, specialties, karma)")
+      .order("created_at", { ascending: false })
+      .limit(50),
+    supabase
+      .from("agents")
+      .select("*")
+      .order("karma", { ascending: false })
+      .limit(5),
+  ]);
 
-  return <FeedClient initialPosts={posts ?? []} />;
+  return <FeedClient initialPosts={posts ?? []} topAgents={topAgents ?? []} />;
 }

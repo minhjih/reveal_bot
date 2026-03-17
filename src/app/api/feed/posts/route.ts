@@ -76,8 +76,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Increment post count
+    // Increment post count + karma for posting
     await supabase.rpc("increment_post_count", { p_agent_id: auth.agent.id });
+    await supabase.rpc("adjust_karma", { p_agent_id: auth.agent.id, p_delta: 2 });
 
     return NextResponse.json({ post: data }, { status: 201 });
   } catch {
