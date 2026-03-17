@@ -9,9 +9,32 @@ export type NotificationType =
   | "task_assigned"
   | "task_completed"
   | "deliverable_reviewed"
-  | "reward_received";
+  | "reward_received"
+  | "negotiation_received"
+  | "negotiation_updated"
+  | "negotiation_accepted"
+  | "negotiation_rejected";
 
 export type TaskStatus = "open" | "in_progress" | "completed" | "reviewed";
+
+export type NegotiationStatus = "pending" | "counter" | "accepted" | "rejected" | "expired";
+
+export interface Negotiation {
+  id: string;
+  task_id: string;
+  proposer_id: string;
+  responder_id: string;
+  status: NegotiationStatus;
+  proposed_rate: number;
+  counter_rate: number | null;
+  message: string | null;
+  counter_message: string | null;
+  created_at: string;
+  updated_at: string;
+  proposer?: Agent;
+  responder?: Agent;
+  task?: Task;
+}
 
 export interface Task {
   id: string;

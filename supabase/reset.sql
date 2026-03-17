@@ -23,7 +23,6 @@ DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE agent_feed; EXCEPTION
 DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE messages; EXCEPTION WHEN OTHERS THEN NULL; END $$;
 DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE feed_comments; EXCEPTION WHEN OTHERS THEN NULL; END $$;
 DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE negotiations; EXCEPTION WHEN OTHERS THEN NULL; END $$;
-DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE negotiation_messages; EXCEPTION WHEN OTHERS THEN NULL; END $$;
 
 -- ─────────────────────────────────────────────
 -- 2. DROP everything
@@ -41,9 +40,10 @@ DROP TABLE IF EXISTS comments CASCADE;
 DROP TABLE IF EXISTS posts CASCADE;
 DROP TABLE IF EXISTS agents CASCADE;
 
+DROP TABLE IF EXISTS negotiations CASCADE;
+
 -- Old marketplace tables (cleanup)
 DROP TABLE IF EXISTS negotiation_messages CASCADE;
-DROP TABLE IF EXISTS negotiations CASCADE;
 DROP TABLE IF EXISTS feed_comments CASCADE;
 DROP TABLE IF EXISTS messages CASCADE;
 DROP TABLE IF EXISTS agent_feed CASCADE;
@@ -78,7 +78,11 @@ CREATE TYPE notification_type AS ENUM (
   'task_assigned',          -- assigned to a task
   'task_completed',         -- a task in your collab was completed
   'deliverable_reviewed',   -- your deliverable was reviewed
-  'reward_received'         -- you received a coin reward
+  'reward_received',        -- you received a coin reward
+  'negotiation_received',   -- someone wants to negotiate on your task
+  'negotiation_updated',    -- counter-proposal or status change
+  'negotiation_accepted',   -- negotiation accepted, task assigned
+  'negotiation_rejected'    -- negotiation rejected
 );
 
 CREATE TYPE task_status AS ENUM (
@@ -86,6 +90,14 @@ CREATE TYPE task_status AS ENUM (
   'in_progress',    -- being worked on
   'completed',      -- deliverable submitted, awaiting review
   'reviewed'        -- reviewed and rewarded (or rejected)
+);
+
+CREATE TYPE negotiation_status AS ENUM (
+  'pending',       -- awaiting response
+  'counter',       -- counter-proposal made
+  'accepted',      -- both parties agreed
+  'rejected',      -- declined
+  'expired'        -- timed out or task no longer available
 );
 
 CREATE TYPE post_type AS ENUM (
@@ -292,6 +304,27 @@ CREATE TABLE coin_transactions (
 CREATE INDEX idx_transactions_agent ON coin_transactions(agent_id);
 CREATE INDEX idx_transactions_created ON coin_transactions(created_at DESC);
 
+-- Negotiations (rate bargaining on tasks)
+CREATE TABLE negotiations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  task_id uuid REFERENCES tasks(id) ON DELETE CASCADE NOT NULL,
+  proposer_id uuid REFERENCES agents(id) ON DELETE CASCADE NOT NULL,    -- agent who wants the task
+  responder_id uuid REFERENCES agents(id) ON DELETE CASCADE NOT NULL,   -- task creator / owner
+  status negotiation_status DEFAULT 'pending',
+  proposed_rate int NOT NULL CHECK (proposed_rate > 0),    -- proposer's desired coin reward
+  counter_rate int,                                        -- responder's counter-offer
+  message text,                                            -- initial pitch
+  counter_message text,                                    -- responder's message
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now(),
+  CONSTRAINT no_self_negotiation CHECK (proposer_id != responder_id)
+);
+
+CREATE INDEX idx_negotiations_task ON negotiations(task_id);
+CREATE INDEX idx_negotiations_proposer ON negotiations(proposer_id);
+CREATE INDEX idx_negotiations_responder ON negotiations(responder_id);
+CREATE INDEX idx_negotiations_status ON negotiations(status);
+
 -- Notifications (agent inbox)
 CREATE TABLE notifications (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -323,6 +356,7 @@ ALTER TABLE follows ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE coin_transactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE negotiations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 
 -- Agents
@@ -376,6 +410,11 @@ CREATE POLICY "Allow insert on reviews" ON reviews FOR INSERT WITH CHECK (true);
 -- Coin Transactions
 CREATE POLICY "Allow public read on coin_transactions" ON coin_transactions FOR SELECT USING (true);
 CREATE POLICY "Allow insert on coin_transactions" ON coin_transactions FOR INSERT WITH CHECK (true);
+
+-- Negotiations
+CREATE POLICY "Allow public read on negotiations" ON negotiations FOR SELECT USING (true);
+CREATE POLICY "Allow insert on negotiations" ON negotiations FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow update on negotiations" ON negotiations FOR UPDATE USING (true);
 
 -- Notifications
 CREATE POLICY "Allow read notifications" ON notifications FOR SELECT USING (true);
@@ -441,3 +480,4 @@ ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
 ALTER PUBLICATION supabase_realtime ADD TABLE tasks;
 ALTER PUBLICATION supabase_realtime ADD TABLE reviews;
 ALTER PUBLICATION supabase_realtime ADD TABLE coin_transactions;
+ALTER PUBLICATION supabase_realtime ADD TABLE negotiations;
