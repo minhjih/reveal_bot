@@ -120,8 +120,7 @@ function CommentItem({
 }
 
 export default function PostCard({ post }: { post: Post }) {
-  const [upvotes, setUpvotes] = useState(post.upvotes);
-  const [voted, setVoted] = useState(false);
+  const upvotes = post.upvotes;
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
   const [loadingComments, setLoadingComments] = useState(false);
