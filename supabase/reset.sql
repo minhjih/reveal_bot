@@ -14,9 +14,11 @@ DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE votes; EXCEPTION WHEN
 DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE follows; EXCEPTION WHEN OTHERS THEN NULL; END $$;
 
 DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE notifications; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE tasks; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE reviews; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE coin_transactions; EXCEPTION WHEN OTHERS THEN NULL; END $$;
 
 -- Also drop old tables from realtime if they exist
-DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE tasks; EXCEPTION WHEN OTHERS THEN NULL; END $$;
 DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE agent_feed; EXCEPTION WHEN OTHERS THEN NULL; END $$;
 DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE messages; EXCEPTION WHEN OTHERS THEN NULL; END $$;
 DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE feed_comments; EXCEPTION WHEN OTHERS THEN NULL; END $$;
@@ -26,6 +28,9 @@ DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE negotiation_messages;
 -- ─────────────────────────────────────────────
 -- 2. DROP everything
 -- ─────────────────────────────────────────────
+DROP TABLE IF EXISTS coin_transactions CASCADE;
+DROP TABLE IF EXISTS reviews CASCADE;
+DROP TABLE IF EXISTS tasks CASCADE;
 DROP TABLE IF EXISTS notifications CASCADE;
 DROP TABLE IF EXISTS follows CASCADE;
 DROP TABLE IF EXISTS votes CASCADE;
@@ -41,9 +46,6 @@ DROP TABLE IF EXISTS negotiation_messages CASCADE;
 DROP TABLE IF EXISTS negotiations CASCADE;
 DROP TABLE IF EXISTS feed_comments CASCADE;
 DROP TABLE IF EXISTS messages CASCADE;
-DROP TABLE IF EXISTS coin_transactions CASCADE;
-DROP TABLE IF EXISTS reviews CASCADE;
-DROP TABLE IF EXISTS tasks CASCADE;
 DROP TABLE IF EXISTS agent_feed CASCADE;
 DROP TABLE IF EXISTS humans CASCADE;
 
@@ -70,7 +72,20 @@ CREATE TYPE notification_type AS ENUM (
   'comment_received',       -- someone commented on your post
   'reply_received',         -- someone replied to your comment
   'follower_gained',        -- someone followed you
-  'mention'                 -- someone mentioned you (future)
+  'mention',                -- someone mentioned you (future)
+  'collab_invite',          -- invited to a collaboration
+  'collab_joined',          -- someone joined your collaboration
+  'task_assigned',          -- assigned to a task
+  'task_completed',         -- a task in your collab was completed
+  'deliverable_reviewed',   -- your deliverable was reviewed
+  'reward_received'         -- you received a coin reward
+);
+
+CREATE TYPE task_status AS ENUM (
+  'open',           -- not started
+  'in_progress',    -- being worked on
+  'completed',      -- deliverable submitted, awaiting review
+  'reviewed'        -- reviewed and rewarded (or rejected)
 );
 
 CREATE TYPE post_type AS ENUM (
@@ -110,6 +125,7 @@ CREATE TABLE agents (
   following_count int DEFAULT 0,
   post_count int DEFAULT 0,
   collab_count int DEFAULT 0,              -- number of collaborations joined
+  coin_balance int DEFAULT 100,            -- internal token balance (starts with 100)
   created_at timestamptz DEFAULT now()
 );
 
@@ -159,6 +175,7 @@ CREATE TABLE collaborations (
   initiator_id uuid REFERENCES agents(id) ON DELETE CASCADE NOT NULL,
   member_ids uuid[] DEFAULT '{}',                -- participating agent IDs
   tags text[] DEFAULT '{}',
+  coin_reward_pool int DEFAULT 0,                -- total coins staked by initiator
   created_at timestamptz DEFAULT now(),
   completed_at timestamptz
 );
@@ -228,6 +245,53 @@ CREATE TABLE follows (
 CREATE INDEX idx_follows_follower ON follows(follower_agent_id);
 CREATE INDEX idx_follows_following ON follows(following_agent_id);
 
+-- Tasks (within collaborations)
+CREATE TABLE tasks (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  collaboration_id uuid REFERENCES collaborations(id) ON DELETE CASCADE NOT NULL,
+  title text NOT NULL,
+  description text DEFAULT '',
+  status task_status DEFAULT 'open',
+  assignee_id uuid REFERENCES agents(id) ON DELETE SET NULL,
+  creator_id uuid REFERENCES agents(id) ON DELETE CASCADE NOT NULL,
+  deliverable_type text DEFAULT 'general',  -- paper, product, analysis, report
+  deliverable text,                          -- actual LLM-generated output
+  coin_reward int DEFAULT 0,                 -- coins awarded on successful review
+  created_at timestamptz DEFAULT now(),
+  completed_at timestamptz
+);
+
+CREATE INDEX idx_tasks_collab ON tasks(collaboration_id);
+CREATE INDEX idx_tasks_assignee ON tasks(assignee_id);
+CREATE INDEX idx_tasks_status ON tasks(status);
+
+-- Reviews (critic + community evaluation of deliverables)
+CREATE TABLE reviews (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  task_id uuid REFERENCES tasks(id) ON DELETE CASCADE NOT NULL,
+  reviewer_id uuid REFERENCES agents(id) ON DELETE CASCADE NOT NULL,
+  score int NOT NULL CHECK (score BETWEEN 1 AND 10),
+  feedback text,
+  is_critic boolean DEFAULT false,   -- platform-level auto-review
+  created_at timestamptz DEFAULT now(),
+  CONSTRAINT unique_review UNIQUE (task_id, reviewer_id)
+);
+
+CREATE INDEX idx_reviews_task ON reviews(task_id);
+
+-- Coin Transactions (ledger)
+CREATE TABLE coin_transactions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  agent_id uuid REFERENCES agents(id) ON DELETE CASCADE NOT NULL,
+  amount int NOT NULL,                -- positive=income, negative=expense
+  reason text NOT NULL,               -- 'task_reward', 'review_reward', 'collab_stake', 'signup_bonus'
+  reference_id uuid,                  -- task_id, collab_id, etc.
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX idx_transactions_agent ON coin_transactions(agent_id);
+CREATE INDEX idx_transactions_created ON coin_transactions(created_at DESC);
+
 -- Notifications (agent inbox)
 CREATE TABLE notifications (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -256,6 +320,9 @@ ALTER TABLE direct_messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE api_keys ENABLE ROW LEVEL SECURITY;
 ALTER TABLE votes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE follows ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
+ALTER TABLE coin_transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 
 -- Agents
@@ -297,6 +364,19 @@ CREATE POLICY "Allow public read follows" ON follows FOR SELECT USING (true);
 CREATE POLICY "Allow insert follows" ON follows FOR INSERT WITH CHECK (true);
 CREATE POLICY "Allow delete follows" ON follows FOR DELETE USING (true);
 
+-- Tasks
+CREATE POLICY "Allow public read on tasks" ON tasks FOR SELECT USING (true);
+CREATE POLICY "Allow insert on tasks" ON tasks FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow update on tasks" ON tasks FOR UPDATE USING (true);
+
+-- Reviews
+CREATE POLICY "Allow public read on reviews" ON reviews FOR SELECT USING (true);
+CREATE POLICY "Allow insert on reviews" ON reviews FOR INSERT WITH CHECK (true);
+
+-- Coin Transactions
+CREATE POLICY "Allow public read on coin_transactions" ON coin_transactions FOR SELECT USING (true);
+CREATE POLICY "Allow insert on coin_transactions" ON coin_transactions FOR INSERT WITH CHECK (true);
+
 -- Notifications
 CREATE POLICY "Allow read notifications" ON notifications FOR SELECT USING (true);
 CREATE POLICY "Allow insert notifications" ON notifications FOR INSERT WITH CHECK (true);
@@ -327,6 +407,20 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION increment_collab_count(p_agent_id uuid)
+RETURNS void AS $$
+BEGIN
+  UPDATE agents SET collab_count = collab_count + 1 WHERE id = p_agent_id;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION adjust_coin_balance(p_agent_id uuid, p_amount int)
+RETURNS void AS $$
+BEGIN
+  UPDATE agents SET coin_balance = coin_balance + p_amount WHERE id = p_agent_id;
+END;
+$$ LANGUAGE plpgsql;
+
 CREATE OR REPLACE FUNCTION increment_post_count(p_agent_id uuid)
 RETURNS void AS $$
 BEGIN
@@ -344,3 +438,6 @@ ALTER PUBLICATION supabase_realtime ADD TABLE collaborations;
 ALTER PUBLICATION supabase_realtime ADD TABLE votes;
 ALTER PUBLICATION supabase_realtime ADD TABLE follows;
 ALTER PUBLICATION supabase_realtime ADD TABLE notifications;
+ALTER PUBLICATION supabase_realtime ADD TABLE tasks;
+ALTER PUBLICATION supabase_realtime ADD TABLE reviews;
+ALTER PUBLICATION supabase_realtime ADD TABLE coin_transactions;
