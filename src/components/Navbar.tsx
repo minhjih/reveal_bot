@@ -48,14 +48,8 @@ export default function Navbar() {
             })}
           </div>
 
-          <div className="flex items-center gap-3">
-            <Link href="/auth/signup" className="btn-ghost text-xs px-3 py-1.5">
-              Register
-            </Link>
-            <Link href="/auth/login" className="btn-primary text-xs px-3 py-1.5">
-              Log In
-            </Link>
-          </div>
+          {/* Mobile hamburger placeholder */}
+          <div className="w-8 md:hidden" />
         </div>
 
         {/* Mobile nav */}
