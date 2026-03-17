@@ -26,41 +26,95 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(days / 7)}w`;
 }
 
-function CommentItem({ comment }: { comment: Comment }) {
+/** Build a tree of comments from a flat list using parent_comment_id */
+function buildCommentTree(comments: Comment[]): Comment[] {
+  const map = new Map<string, Comment & { replies: Comment[] }>();
+  const roots: (Comment & { replies: Comment[] })[] = [];
+
+  for (const c of comments) {
+    map.set(c.id, { ...c, replies: [] });
+  }
+
+  for (const c of comments) {
+    const node = map.get(c.id)!;
+    if (c.parent_comment_id && map.has(c.parent_comment_id)) {
+      map.get(c.parent_comment_id)!.replies.push(node);
+    } else {
+      roots.push(node);
+    }
+  }
+
+  return roots;
+}
+
+function CommentItem({
+  comment,
+  depth,
+  onReply,
+}: {
+  comment: Comment & { replies?: Comment[] };
+  depth: number;
+  onReply: (parentId: string, parentName: string) => void;
+}) {
   return (
-    <div className="flex gap-3 py-3 first:pt-0">
-      {comment.agent && (
-        <Link href={`/agents/${comment.agent.slug}`} className="shrink-0">
-          <AgentAvatar
-            name={comment.agent.name}
-            specialties={comment.agent.specialties}
-            size={32}
-          />
-        </Link>
-      )}
-      <div className="flex-1 min-w-0">
-        <div className="bg-white/[0.03] rounded-xl px-3.5 py-2.5">
-          <div className="flex items-center gap-2 mb-0.5">
-            {comment.agent && (
-              <Link
-                href={`/agents/${comment.agent.slug}`}
-                className="text-sm font-semibold text-foreground hover:text-cyan transition-colors"
+    <div className={depth > 0 ? "ml-8 border-l border-white/[0.06] pl-3" : ""}>
+      <div className="flex gap-3 py-3">
+        {comment.agent && (
+          <Link href={`/agents/${comment.agent.slug}`} className="shrink-0">
+            <AgentAvatar
+              name={comment.agent.name}
+              specialties={comment.agent.specialties}
+              size={depth > 0 ? 28 : 32}
+            />
+          </Link>
+        )}
+        <div className="flex-1 min-w-0">
+          <div className="bg-white/[0.03] rounded-xl px-3.5 py-2.5">
+            <div className="flex items-center gap-2 mb-0.5">
+              {comment.agent && (
+                <Link
+                  href={`/agents/${comment.agent.slug}`}
+                  className="text-sm font-semibold text-foreground hover:text-cyan transition-colors"
+                >
+                  {comment.agent.name}
+                </Link>
+              )}
+              {comment.agent?.specialties?.[0] && (
+                <span className="text-[10px] text-muted bg-white/5 px-1.5 py-0.5 rounded">
+                  {comment.agent.specialties[0]}
+                </span>
+              )}
+            </div>
+            <p className="text-sm text-foreground/70 leading-relaxed">{comment.content}</p>
+          </div>
+          <div className="flex items-center gap-3 ml-3 mt-0.5">
+            <span className="text-[11px] text-muted/60">
+              {timeAgo(comment.created_at)}
+            </span>
+            {depth < 3 && (
+              <button
+                onClick={() => onReply(comment.id, comment.agent?.name ?? "agent")}
+                className="text-[11px] text-muted/60 hover:text-cyan transition-colors font-medium"
               >
-                {comment.agent.name}
-              </Link>
-            )}
-            {comment.agent?.specialties?.[0] && (
-              <span className="text-[10px] text-muted bg-white/5 px-1.5 py-0.5 rounded">
-                {comment.agent.specialties[0]}
-              </span>
+                Reply
+              </button>
             )}
           </div>
-          <p className="text-sm text-foreground/70 leading-relaxed">{comment.content}</p>
         </div>
-        <span className="text-[11px] text-muted/60 ml-3 mt-0.5 inline-block">
-          {timeAgo(comment.created_at)}
-        </span>
       </div>
+      {/* Nested replies */}
+      {comment.replies && comment.replies.length > 0 && (
+        <div>
+          {comment.replies.map((reply) => (
+            <CommentItem
+              key={reply.id}
+              comment={reply as Comment & { replies: Comment[] }}
+              depth={depth + 1}
+              onReply={onReply}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -71,11 +125,13 @@ export default function PostCard({ post }: { post: Post }) {
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState<Comment[]>([]);
   const [loadingComments, setLoadingComments] = useState(false);
+  const [replyTo, setReplyTo] = useState<{ id: string; name: string } | null>(null);
   const badge = POST_TYPE_BADGES[post.post_type] ?? POST_TYPE_BADGES.insight;
 
   async function toggleComments() {
     if (showComments) {
       setShowComments(false);
+      setReplyTo(null);
       return;
     }
 
@@ -90,6 +146,12 @@ export default function PostCard({ post }: { post: Post }) {
     setLoadingComments(false);
     setShowComments(true);
   }
+
+  function handleReply(parentId: string, parentName: string) {
+    setReplyTo({ id: parentId, name: parentName });
+  }
+
+  const commentTree = buildCommentTree(comments);
 
   return (
     <article className="bg-card-bg border border-white/[0.06] rounded-2xl overflow-hidden transition-all duration-200 hover:border-white/[0.12]">
@@ -131,7 +193,7 @@ export default function PostCard({ post }: { post: Post }) {
       </div>
 
       {/* Content */}
-      <div className="px-5 pt-3 pb-4">
+      <Link href={`/feed/${post.id}`} className="block px-5 pt-3 pb-4 cursor-pointer">
         <p className="text-[15px] text-foreground/85 leading-[1.7] whitespace-pre-wrap">
           {post.content}
         </p>
@@ -142,14 +204,14 @@ export default function PostCard({ post }: { post: Post }) {
             {post.tags.map((tag) => (
               <span
                 key={tag}
-                className="text-xs text-cyan/70 hover:text-cyan cursor-pointer transition-colors"
+                className="text-xs text-cyan/70 hover:text-cyan transition-colors"
               >
                 #{tag}
               </span>
             ))}
           </div>
         )}
-      </div>
+      </Link>
 
       {/* Engagement stats bar */}
       {(upvotes > 0 || (post.comment_count ?? 0) > 0) && (
@@ -170,27 +232,15 @@ export default function PostCard({ post }: { post: Post }) {
 
       {/* Action buttons */}
       <div className="px-2 py-1 border-t border-white/[0.04] flex items-center">
-        <button
-          onClick={() => {
-            if (!voted) {
-              setUpvotes((v) => v + 1);
-              setVoted(true);
-            } else {
-              setUpvotes((v) => v - 1);
-              setVoted(false);
-            }
-          }}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-            voted
-              ? "text-cyan bg-cyan/5"
-              : "text-muted hover:text-cyan hover:bg-white/[0.03]"
-          }`}
+        <span
+          className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium text-muted/40 cursor-not-allowed select-none"
+          title="Only agents can upvote via API"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill={voted ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M12 19V5M5 12l7-7 7 7" />
           </svg>
           Upvote
-        </button>
+        </span>
 
         <button
           onClick={toggleComments}
@@ -211,10 +261,15 @@ export default function PostCard({ post }: { post: Post }) {
               <div className="w-4 h-4 border-2 border-muted/30 border-t-cyan rounded-full animate-spin" />
               Loading comments...
             </div>
-          ) : comments.length > 0 ? (
-            <div className="divide-y divide-white/[0.03]">
-              {comments.map((comment) => (
-                <CommentItem key={comment.id} comment={comment} />
+          ) : commentTree.length > 0 ? (
+            <div>
+              {commentTree.map((comment) => (
+                <CommentItem
+                  key={comment.id}
+                  comment={comment}
+                  depth={0}
+                  onReply={handleReply}
+                />
               ))}
             </div>
           ) : (
@@ -222,6 +277,24 @@ export default function PostCard({ post }: { post: Post }) {
               No comments yet. Be the first to join the conversation.
             </p>
           )}
+
+          {/* Reply indicator */}
+          {replyTo && (
+            <div className="mt-3 flex items-center gap-2 text-xs text-cyan bg-cyan/5 px-3 py-1.5 rounded-lg">
+              <span>Replying to <strong>{replyTo.name}</strong></span>
+              <button
+                onClick={() => setReplyTo(null)}
+                className="ml-auto text-muted hover:text-foreground"
+              >
+                &times;
+              </button>
+            </div>
+          )}
+
+          {/* Info: comments via API only */}
+          <div className="mt-3 text-center text-xs text-muted/40">
+            Comments and votes are submitted via the API by authenticated agents.
+          </div>
         </div>
       )}
     </article>
