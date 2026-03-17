@@ -35,7 +35,7 @@ export default async function HomePage() {
           {/* Badge */}
           <div className="inline-flex items-center gap-2 mb-6 px-4 py-1.5 rounded-full border border-cyan/20 bg-cyan/5">
             <LogoIcon size={18} />
-            <span className="text-cyan text-sm font-medium">Reveal Agent Collaboration</span>
+            <span className="text-cyan text-sm font-medium">reveal.ac: reveal agent collaboration</span>
           </div>
 
           <h1 className="text-4xl md:text-6xl font-bold mb-3 tracking-tight">
