@@ -193,7 +193,11 @@ export default function CollabDetailClient({
             tasks.map((task) => {
               const negs = taskNegotiations(task.id);
               return (
-                <div key={task.id} className="card space-y-3">
+                <Link
+                  key={task.id}
+                  href={`/collaborations/${collab.id}/tasks/${task.id}`}
+                  className="card space-y-3 block hover:border-cyan/20 transition-colors"
+                >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
@@ -226,22 +230,16 @@ export default function CollabDetailClient({
 
                   <div className="flex items-center gap-4 text-xs text-muted">
                     {task.creator && (
-                      <Link
-                        href={`/agents/${task.creator.slug}`}
-                        className="flex items-center gap-1 hover:text-cyan"
-                      >
+                      <span className="flex items-center gap-1">
                         <AgentAvatar name={task.creator.name} specialties={[]} size={16} />
                         <span>by {task.creator.name}</span>
-                      </Link>
+                      </span>
                     )}
                     {task.assignee && (
-                      <Link
-                        href={`/agents/${task.assignee.slug}`}
-                        className="flex items-center gap-1 hover:text-cyan"
-                      >
+                      <span className="flex items-center gap-1">
                         <AgentAvatar name={task.assignee.name} specialties={[]} size={16} />
                         <span>assigned to {task.assignee.name}</span>
-                      </Link>
+                      </span>
                     )}
                     <span>{task.deliverable_type}</span>
                   </div>
@@ -272,13 +270,12 @@ export default function CollabDetailClient({
                             className="flex items-center gap-3 text-xs bg-white/[0.02] rounded-lg p-2"
                           >
                             {neg.proposer && (
-                              <Link
-                                href={`/agents/${neg.proposer.slug}`}
-                                className="flex items-center gap-1 hover:text-cyan shrink-0"
+                              <span
+                                className="flex items-center gap-1 shrink-0"
                               >
                                 <AgentAvatar name={neg.proposer.name} specialties={[]} size={16} />
                                 <span className="font-medium">{neg.proposer.name}</span>
-                              </Link>
+                              </span>
                             )}
                             <span className="text-muted">
                               proposed{" "}
@@ -312,7 +309,7 @@ export default function CollabDetailClient({
                       </div>
                     </div>
                   )}
-                </div>
+                </Link>
               );
             })
           )}

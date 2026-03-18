@@ -331,9 +331,10 @@ export default function TasksClient({
                         {collabTasks.map((task) => {
                           const negs = negsByTask.get(task.id) || [];
                           return (
-                            <div
+                            <Link
                               key={task.id}
-                              className="bg-white/[0.02] rounded-xl px-3.5 py-3 space-y-2"
+                              href={`/collaborations/${task.collaboration_id}/tasks/${task.id}`}
+                              className="bg-white/[0.02] rounded-xl px-3.5 py-3 space-y-2 block hover:bg-white/[0.04] transition-colors"
                             >
                               {/* Task header */}
                               <div className="flex items-start justify-between gap-2">
@@ -364,17 +365,17 @@ export default function TasksClient({
                               {/* Assignee + Creator */}
                               <div className="flex items-center gap-3 text-xs text-muted">
                                 {task.creator && (
-                                  <Link href={`/agents/${task.creator.slug}`} className="flex items-center gap-1 hover:text-cyan">
+                                  <span className="flex items-center gap-1">
                                     <AgentAvatar name={task.creator.name} specialties={[]} size={14} />
                                     <span>posted by {task.creator.name}</span>
-                                  </Link>
+                                  </span>
                                 )}
                                 {task.assignee && (
-                                  <Link href={`/agents/${task.assignee.slug}`} className="flex items-center gap-1 hover:text-cyan">
+                                  <span className="flex items-center gap-1">
                                     <span className="text-muted/30">&rarr;</span>
                                     <AgentAvatar name={task.assignee.name} specialties={[]} size={14} />
                                     <span className="text-emerald-400">{task.assignee.name}</span>
-                                  </Link>
+                                  </span>
                                 )}
                               </div>
 
@@ -401,10 +402,10 @@ export default function TasksClient({
                                     {negs.map((neg) => (
                                       <div key={neg.id} className="flex items-center gap-2 text-xs">
                                         {neg.proposer && (
-                                          <Link href={`/agents/${neg.proposer.slug}`} className="flex items-center gap-1 hover:text-cyan">
+                                          <span className="flex items-center gap-1">
                                             <AgentAvatar name={neg.proposer.name} specialties={[]} size={14} />
                                             <span>{neg.proposer.name}</span>
-                                          </Link>
+                                          </span>
                                         )}
                                         <span className="text-yellow-400">{neg.proposed_rate}c</span>
                                         {neg.counter_rate && (
@@ -421,7 +422,7 @@ export default function TasksClient({
                                   </div>
                                 </div>
                               )}
-                            </div>
+                            </Link>
                           );
                         })}
                       </div>
@@ -452,7 +453,7 @@ export default function TasksClient({
             openTasks.map((task) => {
               const negs = negsByTask.get(task.id) || [];
               return (
-                <div key={task.id} className="card space-y-2">
+                <Link key={task.id} href={`/collaborations/${task.collaboration_id}/tasks/${task.id}`} className="card space-y-2 block hover:border-cyan/20 transition-colors">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
@@ -477,15 +478,15 @@ export default function TasksClient({
 
                   <div className="flex items-center gap-4 text-xs text-muted flex-wrap">
                     {task.collaboration && (
-                      <Link href={`/collaborations/${task.collaboration.id}`} className="hover:text-cyan">
+                      <span>
                         in {task.collaboration.title}
-                      </Link>
+                      </span>
                     )}
                     {task.creator && (
-                      <Link href={`/agents/${task.creator.slug}`} className="flex items-center gap-1 hover:text-cyan">
+                      <span className="flex items-center gap-1">
                         <AgentAvatar name={task.creator.name} specialties={[]} size={16} />
                         <span>{task.creator.name}</span>
-                      </Link>
+                      </span>
                     )}
                     <span>{task.deliverable_type}</span>
                     <span>{timeAgo(task.created_at)}</span>
@@ -497,10 +498,10 @@ export default function TasksClient({
                       {negs.map((neg) => (
                         <div key={neg.id} className="flex items-center gap-2 text-xs py-0.5">
                           {neg.proposer && (
-                            <Link href={`/agents/${neg.proposer.slug}`} className="flex items-center gap-1 hover:text-cyan">
+                            <span className="flex items-center gap-1">
                               <AgentAvatar name={neg.proposer.name} specialties={[]} size={14} />
                               <span>{neg.proposer.name}</span>
-                            </Link>
+                            </span>
                           )}
                           <span className="text-yellow-400">{neg.proposed_rate}c</span>
                           <span className={`px-1.5 py-0.5 rounded text-[9px] font-medium ${NEG_STATUS_COLORS[neg.status] || ""}`}>
@@ -510,7 +511,7 @@ export default function TasksClient({
                       ))}
                     </div>
                   )}
-                </div>
+                </Link>
               );
             })
           )}
