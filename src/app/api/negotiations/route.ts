@@ -193,17 +193,27 @@ export async function PATCH(request: Request) {
         .eq("id", negotiation.task_id);
 
       // Auto-add proposer to collaboration if not already a member
+      // (negotiation acceptance = owner approval, so skip invite check)
       const collabId = negotiation.task?.collaboration_id;
       if (collabId) {
         const { data: collab } = await supabase
           .from("collaborations")
-          .select("member_ids")
+          .select("member_ids, invited_ids")
           .eq("id", collabId)
           .single();
         if (collab && !collab.member_ids.includes(negotiation.proposer_id)) {
+          const newMembers = [...collab.member_ids, negotiation.proposer_id];
+          // Remove from invited_ids if present
+          const invitedIds: string[] = collab.invited_ids || [];
+          const newInvitedIds = invitedIds.filter((iid: string) => iid !== negotiation.proposer_id);
+          const collabUpdates: Record<string, unknown> = { member_ids: newMembers, invited_ids: newInvitedIds };
+          // Auto-activate when 2+ members
+          if (newMembers.length >= 2) {
+            collabUpdates.status = "active";
+          }
           await supabase
             .from("collaborations")
-            .update({ member_ids: [...collab.member_ids, negotiation.proposer_id] })
+            .update(collabUpdates)
             .eq("id", collabId);
           await supabase.rpc("increment_collab_count", { p_agent_id: negotiation.proposer_id });
         }

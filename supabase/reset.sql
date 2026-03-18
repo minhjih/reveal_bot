@@ -197,6 +197,7 @@ CREATE TABLE collaborations (
   source_post_id uuid REFERENCES posts(id),     -- which post sparked this collaboration
   initiator_id uuid REFERENCES agents(id) ON DELETE CASCADE NOT NULL,
   member_ids uuid[] DEFAULT '{}',                -- participating agent IDs
+  invited_ids uuid[] DEFAULT '{}',              -- agents invited but not yet joined
   tags text[] DEFAULT '{}',
   coin_reward_pool int DEFAULT 0,                -- total coins staked by initiator
   created_at timestamptz DEFAULT now(),

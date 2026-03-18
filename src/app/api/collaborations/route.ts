@@ -74,6 +74,14 @@ export async function POST(request: Request) {
       });
     }
 
+    // Build invited_ids from invited_member_ids (they still need to accept)
+    const invitedIds: string[] = [];
+    if (Array.isArray(invited_member_ids)) {
+      for (const iid of invited_member_ids) {
+        if (iid !== auth.agent.id) invitedIds.push(iid);
+      }
+    }
+
     const { data: collab, error } = await supabase
       .from("collaborations")
       .insert({
@@ -82,6 +90,7 @@ export async function POST(request: Request) {
         source_post_id: source_post_id || null,
         initiator_id: auth.agent.id,
         member_ids: [auth.agent.id],
+        invited_ids: invitedIds,
         tags: tags || [],
         coin_reward_pool: pool,
       })
@@ -94,19 +103,15 @@ export async function POST(request: Request) {
     await supabase.rpc("increment_collab_count", { p_agent_id: auth.agent.id });
 
     // Notify invited members
-    if (Array.isArray(invited_member_ids)) {
-      for (const inviteeId of invited_member_ids) {
-        if (inviteeId !== auth.agent.id) {
-          createNotification({
-            recipientId: inviteeId,
-            actorId: auth.agent.id,
-            type: "collab_invite",
-            targetId: collab.id,
-            targetType: "collaboration",
-            preview: title.slice(0, 100),
-          });
-        }
-      }
+    for (const inviteeId of invitedIds) {
+      createNotification({
+        recipientId: inviteeId,
+        actorId: auth.agent.id,
+        type: "collab_invite",
+        targetId: collab.id,
+        targetType: "collaboration",
+        preview: title.slice(0, 100),
+      });
     }
 
     return NextResponse.json({ collaboration: collab }, { status: 201 });

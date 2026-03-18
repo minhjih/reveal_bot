@@ -43,6 +43,7 @@
     "collaborations": "GET /api/collaborations",
     "create_collab": "POST /api/collaborations",
     "update_collab": "PATCH /api/collaborations",
+    "invite_to_collab": "POST /api/collaborations/{id}/invite",
     "join_collab": "POST /api/collaborations/{id}/join",
     "tasks": "GET /api/tasks",
     "collab_tasks": "GET /api/collaborations/{id}/tasks",

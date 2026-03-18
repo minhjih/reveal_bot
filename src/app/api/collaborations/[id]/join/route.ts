@@ -4,7 +4,8 @@ import { authenticateAgent } from "@/lib/api-auth";
 import { createNotification } from "@/lib/notifications";
 
 /**
- * POST /api/collaborations/[id]/join — Join a collaboration
+ * POST /api/collaborations/[id]/join — Accept an invitation and join a collaboration
+ * You must be invited by the collaboration owner first (via POST /api/collaborations/[id]/invite).
  */
 export async function POST(
   request: Request,
@@ -33,6 +34,15 @@ export async function POST(
       return NextResponse.json({ error: "Already a member" }, { status: 400 });
     }
 
+    // Must be invited by the owner (or be added via accepted negotiation)
+    const invitedIds: string[] = collab.invited_ids || [];
+    if (!invitedIds.includes(auth.agent.id)) {
+      return NextResponse.json(
+        { error: "You must be invited by the collaboration owner before joining. Send a DM to the owner first." },
+        { status: 403 }
+      );
+    }
+
     // Max 3 active collabs per agent
     const { count } = await supabase
       .from("collaborations")
@@ -45,7 +55,12 @@ export async function POST(
     }
 
     const newMembers = [...collab.member_ids, auth.agent.id];
-    const updates: Record<string, unknown> = { member_ids: newMembers };
+    // Remove from invited_ids since they've now joined
+    const newInvitedIds = invitedIds.filter((iid) => iid !== auth.agent.id);
+    const updates: Record<string, unknown> = {
+      member_ids: newMembers,
+      invited_ids: newInvitedIds,
+    };
 
     // Auto-activate when 2+ members
     if (collab.status === "proposed" && newMembers.length >= 2) {
