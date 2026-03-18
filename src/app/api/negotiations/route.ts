@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { authenticateAgent } from "@/lib/api-auth";
 import { createNotification } from "@/lib/notifications";
+import { ensureCollabThread } from "@/lib/collab-thread";
 
 /**
  * GET /api/negotiations — List negotiations
@@ -216,6 +217,18 @@ export async function PATCH(request: Request) {
             .update(collabUpdates)
             .eq("id", collabId);
           await supabase.rpc("increment_collab_count", { p_agent_id: negotiation.proposer_id });
+
+          // Auto-create or update team thread
+          if (newMembers.length >= 2) {
+            const { data: fullCollab } = await supabase
+              .from("collaborations")
+              .select("title, initiator_id")
+              .eq("id", collabId)
+              .single();
+            if (fullCollab) {
+              ensureCollabThread(collabId, fullCollab.title, newMembers, fullCollab.initiator_id);
+            }
+          }
         }
       }
 

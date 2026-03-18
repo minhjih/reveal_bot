@@ -64,6 +64,8 @@ export async function GET(request: Request) {
 }
 
 // POST /api/threads — Create a new thread (requires auth)
+// If collaboration_id is provided and you are the collab owner,
+// you can omit participant_ids — all collab members are auto-added.
 export async function POST(request: Request) {
   try {
     const auth = await authenticateAgent(request);
@@ -72,15 +74,44 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { title, participant_ids, collaboration_id } = body;
 
-    if (!participant_ids || !Array.isArray(participant_ids) || participant_ids.length === 0) {
-      return NextResponse.json(
-        { error: "participant_ids is required (at least one other agent)" },
-        { status: 400 }
-      );
-    }
+    const supabase = createServerSupabaseClient();
 
-    // Ensure creator is included in participants
-    const allParticipants = Array.from(new Set([auth.agent.id, ...participant_ids]));
+    let allParticipants: string[];
+
+    // If collaboration_id provided, auto-populate participants from collab members
+    if (collaboration_id) {
+      const { data: collab } = await supabase
+        .from("collaborations")
+        .select("id, member_ids, initiator_id")
+        .eq("id", collaboration_id)
+        .single();
+
+      if (!collab) {
+        return NextResponse.json({ error: "Collaboration not found" }, { status: 404 });
+      }
+
+      // Must be a member of the collab
+      if (!collab.member_ids.includes(auth.agent.id)) {
+        return NextResponse.json({ error: "You are not a member of this collaboration" }, { status: 403 });
+      }
+
+      if (participant_ids && Array.isArray(participant_ids) && participant_ids.length > 0) {
+        // Merge explicit participant_ids with creator
+        allParticipants = Array.from(new Set([auth.agent.id, ...participant_ids]));
+      } else {
+        // No participant_ids → include all collab members
+        allParticipants = [...collab.member_ids];
+      }
+    } else {
+      // Standalone thread — participant_ids required
+      if (!participant_ids || !Array.isArray(participant_ids) || participant_ids.length === 0) {
+        return NextResponse.json(
+          { error: "participant_ids is required (at least one other agent)" },
+          { status: 400 }
+        );
+      }
+      allParticipants = Array.from(new Set([auth.agent.id, ...participant_ids]));
+    }
 
     if (allParticipants.length < 2) {
       return NextResponse.json(
@@ -88,8 +119,6 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-
-    const supabase = createServerSupabaseClient();
 
     // Verify all participants exist
     const { data: agents } = await supabase
@@ -99,19 +128,6 @@ export async function POST(request: Request) {
 
     if (!agents || agents.length !== allParticipants.length) {
       return NextResponse.json({ error: "One or more participant agents not found" }, { status: 404 });
-    }
-
-    // If collaboration_id provided, verify it exists and creator is a member
-    if (collaboration_id) {
-      const { data: collab } = await supabase
-        .from("collaborations")
-        .select("id, member_ids")
-        .eq("id", collaboration_id)
-        .single();
-
-      if (!collab) {
-        return NextResponse.json({ error: "Collaboration not found" }, { status: 404 });
-      }
     }
 
     const { data, error } = await supabase
@@ -149,14 +165,15 @@ export async function POST(request: Request) {
   }
 }
 
-// PATCH /api/threads — Update thread (add participants, change title)
+// PATCH /api/threads — Update thread (add participants, change title, link to collab)
+// Body: { thread_id, title?, add_participant_ids?, collaboration_id? }
 export async function PATCH(request: Request) {
   try {
     const auth = await authenticateAgent(request);
     if (auth.error) return auth.error;
 
     const body = await request.json();
-    const { thread_id, title, add_participant_ids } = body;
+    const { thread_id, title, add_participant_ids, collaboration_id } = body;
 
     if (!thread_id) {
       return NextResponse.json({ error: "thread_id is required" }, { status: 400 });
@@ -187,6 +204,31 @@ export async function PATCH(request: Request) {
     if (add_participant_ids && Array.isArray(add_participant_ids)) {
       const newParticipants = Array.from(new Set([...thread.participant_ids, ...add_participant_ids]));
       updates.participant_ids = newParticipants;
+    }
+
+    // Link thread to a collaboration
+    if (collaboration_id !== undefined) {
+      if (collaboration_id === null) {
+        // Unlink from collaboration
+        updates.collaboration_id = null;
+      } else {
+        // Verify collab exists and requester is the collab owner
+        const { data: collab } = await supabase
+          .from("collaborations")
+          .select("id, initiator_id, member_ids")
+          .eq("id", collaboration_id)
+          .single();
+
+        if (!collab) {
+          return NextResponse.json({ error: "Collaboration not found" }, { status: 404 });
+        }
+
+        if (collab.initiator_id !== auth.agent.id) {
+          return NextResponse.json({ error: "Only the collaboration owner can link threads" }, { status: 403 });
+        }
+
+        updates.collaboration_id = collaboration_id;
+      }
     }
 
     if (Object.keys(updates).length === 0) {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { authenticateAgent } from "@/lib/api-auth";
 import { createNotification } from "@/lib/notifications";
+import { ensureCollabThread } from "@/lib/collab-thread";
 
 /**
  * POST /api/collaborations/[id]/join — Accept an invitation and join a collaboration
@@ -77,6 +78,11 @@ export async function POST(
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
     await supabase.rpc("increment_collab_count", { p_agent_id: auth.agent.id });
+
+    // Auto-create or update team thread when collab has 2+ members
+    if (newMembers.length >= 2) {
+      ensureCollabThread(id, collab.title, newMembers, collab.initiator_id);
+    }
 
     // Notify existing members
     for (const memberId of collab.member_ids) {
