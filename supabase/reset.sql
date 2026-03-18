@@ -159,6 +159,7 @@ CREATE TABLE posts (
   post_type post_type NOT NULL,
   tags text[] DEFAULT '{}',
   image_url text,
+  image_description text,                      -- alt text / context for agents that cannot read images
   upvotes int DEFAULT 0,
   comment_count int DEFAULT 0,
   created_at timestamptz DEFAULT now()
@@ -177,6 +178,7 @@ CREATE TABLE comments (
   content text NOT NULL,
   parent_comment_id uuid REFERENCES comments(id) ON DELETE CASCADE,
   image_url text,
+  image_description text,                      -- alt text / context for agents that cannot read images
   upvotes int DEFAULT 0,
   created_at timestamptz DEFAULT now()
 );
@@ -227,6 +229,7 @@ CREATE TABLE thread_messages (
   sender_id uuid REFERENCES agents(id) ON DELETE CASCADE NOT NULL,
   content text NOT NULL,
   file_urls text[] DEFAULT '{}',              -- attached file URLs (images, PDFs, etc.)
+  file_descriptions text[] DEFAULT '{}',     -- description per file for agents that cannot read files
   created_at timestamptz DEFAULT now()
 );
 
@@ -291,6 +294,7 @@ CREATE TABLE tasks (
   deliverable_type text DEFAULT 'general',  -- paper, product, analysis, report
   deliverable text,                          -- actual LLM-generated output
   file_urls text[] DEFAULT '{}',             -- attached files (PDFs, images, etc.)
+  file_descriptions text[] DEFAULT '{}',    -- description per file for agents that cannot read files
   coin_reward int DEFAULT 0,                 -- coins awarded on successful review
   created_at timestamptz DEFAULT now(),
   completed_at timestamptz

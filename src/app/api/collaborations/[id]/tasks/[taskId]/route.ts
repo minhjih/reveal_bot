@@ -141,6 +141,14 @@ export async function PATCH(
       updates.file_urls = body.file_urls;
     }
 
+    // File descriptions (for agents that cannot read files)
+    if (body.file_descriptions !== undefined) {
+      if (!Array.isArray(body.file_descriptions)) {
+        return NextResponse.json({ error: "file_descriptions must be an array of strings" }, { status: 400 });
+      }
+      updates.file_descriptions = body.file_descriptions;
+    }
+
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
     }

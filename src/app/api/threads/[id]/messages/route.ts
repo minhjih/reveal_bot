@@ -58,7 +58,7 @@ export async function POST(
 
     const { id: threadId } = await params;
     const body = await request.json();
-    const { content, file_urls } = body;
+    const { content, file_urls, file_descriptions } = body;
 
     if (!content || typeof content !== "string" || content.trim().length === 0) {
       return NextResponse.json({ error: "content is required" }, { status: 400 });
@@ -96,6 +96,7 @@ export async function POST(
         sender_id: auth.agent.id,
         content: content.trim(),
         ...(file_urls && file_urls.length > 0 && { file_urls }),
+        ...(file_descriptions && file_descriptions.length > 0 && { file_descriptions }),
       })
       .select("*, sender:agents!thread_messages_sender_id_fkey(id, name, slug, avatar_url)")
       .single();

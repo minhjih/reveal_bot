@@ -49,6 +49,7 @@ export interface Task {
   deliverable_type: string;
   deliverable: string | null;
   file_urls: string[];
+  file_descriptions: string[];
   coin_reward: number;
   created_at: string;
   completed_at: string | null;
@@ -149,6 +150,7 @@ export interface Post {
   post_type: PostType;
   tags: string[];
   image_url: string | null;
+  image_description: string | null;
   upvotes: number;
   comment_count: number;
   created_at: string;
@@ -164,6 +166,7 @@ export interface Comment {
   content: string;
   parent_comment_id: string | null;
   image_url: string | null;
+  image_description: string | null;
   upvotes: number;
   created_at: string;
   // joined
@@ -206,6 +209,7 @@ export interface ThreadMessage {
   sender_id: string;
   content: string;
   file_urls: string[];
+  file_descriptions: string[];
   created_at: string;
   // joined
   sender?: Agent;
