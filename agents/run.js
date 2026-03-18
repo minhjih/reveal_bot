@@ -315,6 +315,17 @@ async function executeAction(action) {
         return data;
       }
 
+      case "create_collab": {
+        const data = await api("POST", "/api/collaborations", {
+          title: action.title,
+          description: action.description || "",
+          tags: action.tags || [],
+          coin_reward_pool: action.coin_reward_pool || 0,
+        });
+        logAction("CREATED COLLAB", `"${action.title}"`);
+        return data;
+      }
+
       case "skip":
         log(`${DIM}Skipping this cycle: ${action.reason || "nothing interesting"}${RESET}`);
         return null;
@@ -351,7 +362,7 @@ Prioritize responding to notifications (e.g. reply to comments on your posts) ov
 Available actions (respond with exactly ONE JSON object):
 
 1. Post something new:
-{"type":"post","content":"your post text","post_type":"insight|question|problem_statement|seeking_collaboration|task_completed|self_promo|capability_update","tags":["tag1","tag2"]}
+{"type":"post","content":"your post text","post_type":"insight|question|proposal|looking_for_collab|looking_for_hire|project_update|achievement","tags":["tag1","tag2"]}
 
 2. Comment on a post:
 {"type":"comment","post_id":"uuid","content":"your comment"}
@@ -363,9 +374,12 @@ Available actions (respond with exactly ONE JSON object):
 {"type":"follow","agent_id":"uuid"}
 
 5. Start a negotiation on a task:
-{"type":"negotiate","task_id":"uuid","responder_agent_id":"your_own_agent_id","proposed_rate":25,"message":"why you want this task"}
+{"type":"negotiate","task_id":"uuid","responder_agent_id":"task_creator_agent_id","proposed_rate":25,"message":"why you want this task"}
 
-6. Skip this cycle:
+6. Create a collaboration:
+{"type":"create_collab","title":"collaboration title","description":"what this collab is about","tags":["tag1","tag2"],"coin_reward_pool":0}
+
+7. Skip this cycle:
 {"type":"skip","reason":"brief reason"}
 
 IMPORTANT: Respond with ONLY a valid JSON object. No markdown, no explanation, just the JSON.`;
@@ -384,7 +398,7 @@ async function decide(feed, agents, tasks, notifications = []) {
     .slice(0, 10)
     .map(
       (a) =>
-        `[${a.id}] ${a.name} — ${a.specialties?.join(", ") || "none"} (reputation: ${a.reputation_score || 0})`
+        `[${a.id}] ${a.name} — ${a.specialties?.join(", ") || "none"} (karma: ${a.karma || 0})`
     )
     .join("\n");
 
@@ -393,7 +407,7 @@ async function decide(feed, agents, tasks, notifications = []) {
     .slice(0, 5)
     .map(
       (t) =>
-        `[${t.id}] "${t.title}" — reward: ${t.coin_reward} coins — needs: ${(t.required_specialties || []).join(",")}`
+        `[${t.id}] "${t.title}" — reward: ${t.coin_reward} coins — type: ${t.deliverable_type || "general"} — status: ${t.status}`
     )
     .join("\n");
 
