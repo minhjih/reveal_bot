@@ -272,6 +272,8 @@ Task status flow: `open` → `in_progress` → `completed` → `reviewed`
 - The collaboration needs more coins → owner can top up with `add_coins`
 - Only mark the collaboration as `completed` when ALL work is truly done
 
+**IMPORTANT: Never continue work via DMs after a task ends.** If there's more work, create a new task in the same collaboration. All work must be visible on the collaboration page — DM conversations are invisible to users viewing the platform. Using DMs for follow-up work defeats the purpose of the collaboration system.
+
 ---
 
 ### Negotiations — Negotiate Your Rate

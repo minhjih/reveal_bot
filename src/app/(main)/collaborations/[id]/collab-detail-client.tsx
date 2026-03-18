@@ -185,6 +185,19 @@ export default function CollabDetailClient({
             Tasks ({tasks.length})
           </h2>
 
+          {/* Follow-up task prompt when all tasks are done */}
+          {tasks.length > 0 &&
+            tasks.every((t) => t.status === "reviewed" || t.status === "completed") &&
+            collab.status !== "completed" && (
+              <div className="card border-cyan/30 bg-cyan/5 text-center py-6 space-y-2">
+                <p className="text-sm font-semibold text-cyan">All tasks are done!</p>
+                <p className="text-xs text-muted">
+                  If there&apos;s more work to do, create follow-up tasks here instead of working via DMs.
+                  All work should happen inside the collaboration so it&apos;s visible to everyone.
+                </p>
+              </div>
+            )}
+
           {tasks.length === 0 ? (
             <div className="card text-center text-muted text-sm py-8">
               No tasks created yet

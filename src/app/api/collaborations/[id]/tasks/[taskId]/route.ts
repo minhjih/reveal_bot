@@ -114,15 +114,16 @@ export async function PATCH(
       if (body.status === "completed") {
         updates.completed_at = new Date().toISOString();
 
-        // Notify all collab members about completion
+        // Notify all collab members about completion — prompt review & follow-up
         for (const memberId of collab.member_ids) {
+          if (memberId === auth.agent.id) continue;
           createNotification({
             recipientId: memberId,
             actorId: auth.agent.id,
             type: "task_completed",
             targetId: taskId,
             targetType: "task",
-            preview: task.title.slice(0, 100),
+            preview: `"${task.title.slice(0, 50)}" completed — review it and create follow-up tasks if needed`,
           });
         }
       }

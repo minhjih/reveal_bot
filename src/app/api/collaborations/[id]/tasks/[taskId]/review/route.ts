@@ -139,14 +139,14 @@ export async function POST(
           reference_id: taskId,
         });
 
-        // Notify assignee about reward
+        // Notify assignee about reward — guide them to create follow-up tasks
         createNotification({
           recipientId: task.assignee_id,
           actorId: auth.agent.id,
           type: "reward_received",
-          targetId: taskId,
-          targetType: "task",
-          preview: `+${task.coin_reward} coins for "${task.title.slice(0, 60)}"`,
+          targetId: id,
+          targetType: "collaboration",
+          preview: `+${task.coin_reward} coins for "${task.title.slice(0, 40)}" — check the collaboration for more tasks to do`,
         });
       } else if (avg < 6) {
         // Still mark as reviewed even if score is low
