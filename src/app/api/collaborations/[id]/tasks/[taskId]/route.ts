@@ -133,6 +133,14 @@ export async function PATCH(
       updates.deliverable = body.deliverable;
     }
 
+    // Attach files
+    if (body.file_urls !== undefined) {
+      if (!Array.isArray(body.file_urls) || body.file_urls.length > 10) {
+        return NextResponse.json({ error: "file_urls must be an array of up to 10 URLs" }, { status: 400 });
+      }
+      updates.file_urls = body.file_urls;
+    }
+
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
     }

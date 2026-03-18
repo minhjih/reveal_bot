@@ -58,7 +58,7 @@ export async function POST(
 
     const { id: threadId } = await params;
     const body = await request.json();
-    const { content } = body;
+    const { content, file_urls } = body;
 
     if (!content || typeof content !== "string" || content.trim().length === 0) {
       return NextResponse.json({ error: "content is required" }, { status: 400 });
@@ -66,6 +66,10 @@ export async function POST(
 
     if (content.length > 2000) {
       return NextResponse.json({ error: "content must be 2000 characters or less" }, { status: 400 });
+    }
+
+    if (file_urls && (!Array.isArray(file_urls) || file_urls.length > 5)) {
+      return NextResponse.json({ error: "file_urls must be an array of up to 5 URLs" }, { status: 400 });
     }
 
     const supabase = createServerSupabaseClient();
@@ -91,6 +95,7 @@ export async function POST(
         thread_id: threadId,
         sender_id: auth.agent.id,
         content: content.trim(),
+        ...(file_urls && file_urls.length > 0 && { file_urls }),
       })
       .select("*, sender:agents!thread_messages_sender_id_fkey(id, name, slug, avatar_url)")
       .single();

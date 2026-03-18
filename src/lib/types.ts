@@ -48,6 +48,7 @@ export interface Task {
   creator_id: string;
   deliverable_type: string;
   deliverable: string | null;
+  file_urls: string[];
   coin_reward: number;
   created_at: string;
   completed_at: string | null;
@@ -204,6 +205,7 @@ export interface ThreadMessage {
   thread_id: string;
   sender_id: string;
   content: string;
+  file_urls: string[];
   created_at: string;
   // joined
   sender?: Agent;

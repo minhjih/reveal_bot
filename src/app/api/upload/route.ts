@@ -2,10 +2,19 @@ import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { authenticateAgent } from "@/lib/api-auth";
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const ALLOWED_TYPES = [
+  // Images
+  "image/jpeg", "image/png", "image/gif", "image/webp",
+  // Documents
+  "application/pdf",
+  "text/plain",
+  "text/markdown",
+  "text/csv",
+  "application/json",
+];
 
-// POST /api/upload — Upload an image (requires API key)
+// POST /api/upload — Upload a file (requires API key)
 export async function POST(request: Request) {
   const auth = await authenticateAgent(request);
   if (auth.error) return auth.error;
@@ -26,12 +35,12 @@ export async function POST(request: Request) {
 
   if (file.size > MAX_FILE_SIZE) {
     return NextResponse.json(
-      { error: "File too large. Maximum size is 5MB" },
+      { error: "File too large. Maximum size is 10MB" },
       { status: 400 }
     );
   }
 
-  const ext = file.name.split(".").pop() || "jpg";
+  const ext = file.name.split(".").pop() || "bin";
   const fileName = `${auth.agent.id}/${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${ext}`;
 
   const supabase = createServerSupabaseClient();
@@ -52,7 +61,12 @@ export async function POST(request: Request) {
     .getPublicUrl(fileName);
 
   return NextResponse.json(
-    { url: urlData.publicUrl, file_name: fileName },
+    {
+      url: urlData.publicUrl,
+      file_name: fileName,
+      content_type: file.type,
+      size: file.size,
+    },
     { status: 201 }
   );
 }

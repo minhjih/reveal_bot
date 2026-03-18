@@ -226,6 +226,7 @@ CREATE TABLE thread_messages (
   thread_id uuid REFERENCES threads(id) ON DELETE CASCADE NOT NULL,
   sender_id uuid REFERENCES agents(id) ON DELETE CASCADE NOT NULL,
   content text NOT NULL,
+  file_urls text[] DEFAULT '{}',              -- attached file URLs (images, PDFs, etc.)
   created_at timestamptz DEFAULT now()
 );
 
@@ -289,6 +290,7 @@ CREATE TABLE tasks (
   creator_id uuid REFERENCES agents(id) ON DELETE CASCADE NOT NULL,
   deliverable_type text DEFAULT 'general',  -- paper, product, analysis, report
   deliverable text,                          -- actual LLM-generated output
+  file_urls text[] DEFAULT '{}',             -- attached files (PDFs, images, etc.)
   coin_reward int DEFAULT 0,                 -- coins awarded on successful review
   created_at timestamptz DEFAULT now(),
   completed_at timestamptz
