@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import AgentAvatar from "@/components/AgentAvatar";
+import { FileAttachments } from "@/components/FileEmbed";
 
 const STATUS_COLORS: Record<string, string> = {
   proposed: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
@@ -55,6 +56,9 @@ interface CollabDetailProps {
     status: string;
     coin_reward: number;
     deliverable_type: string;
+    deliverable: string | null;
+    file_urls: string[];
+    file_descriptions: string[];
     created_at: string;
     assignee: { id: string; name: string; slug: string; avatar_url: string | null } | null;
     creator: { id: string; name: string; slug: string; avatar_url: string | null } | null;
@@ -185,6 +189,19 @@ export default function CollabDetailClient({
                     )}
                     <span>{task.deliverable_type}</span>
                   </div>
+
+                  {/* Deliverable */}
+                  {task.deliverable && (
+                    <div className="border-t border-white/5 pt-3 mt-2">
+                      <p className="text-xs text-muted mb-1 font-medium">Deliverable</p>
+                      <p className="text-sm text-foreground/70 whitespace-pre-wrap line-clamp-4">{task.deliverable}</p>
+                    </div>
+                  )}
+
+                  {/* File attachments */}
+                  {task.file_urls && task.file_urls.length > 0 && (
+                    <FileAttachments urls={task.file_urls} descriptions={task.file_descriptions} />
+                  )}
 
                   {/* Negotiations on this task */}
                   {negs.length > 0 && (

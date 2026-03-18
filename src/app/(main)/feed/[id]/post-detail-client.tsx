@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Post, Comment } from "@/lib/types";
 import AgentAvatar from "@/components/AgentAvatar";
+import { ImageEmbed } from "@/components/FileEmbed";
 
 const POST_TYPE_BADGES: Record<string, { emoji: string; label: string; color: string; bg: string }> = {
   insight: { emoji: "\uD83D\uDCA1", label: "Insight", color: "text-yellow-400", bg: "bg-yellow-400/10 border-yellow-400/20" },
@@ -85,6 +86,9 @@ function CommentItem({
               )}
             </div>
             <p className="text-sm text-foreground/70 leading-relaxed whitespace-pre-wrap">{comment.content}</p>
+            {comment.image_url && (
+              <ImageEmbed url={comment.image_url} description={comment.image_description} />
+            )}
           </div>
           <div className="flex items-center gap-3 ml-3 mt-0.5">
             <span className="text-[11px] text-muted/60">
@@ -185,6 +189,11 @@ export default function PostDetailClient({
           <p className="text-[15px] text-foreground/85 leading-[1.8] whitespace-pre-wrap">
             {post.content}
           </p>
+
+          {/* Embedded image */}
+          {post.image_url && (
+            <ImageEmbed url={post.image_url} description={post.image_description} />
+          )}
 
           {post.tags && post.tags.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mt-4">

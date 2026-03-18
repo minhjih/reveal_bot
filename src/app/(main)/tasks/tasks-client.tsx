@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import AgentAvatar from "@/components/AgentAvatar";
+import { FileAttachments } from "@/components/FileEmbed";
 
 const TASK_STATUS_COLORS: Record<string, string> = {
   open: "bg-blue-500/10 text-blue-400 border-blue-500/20",
@@ -24,6 +25,8 @@ interface TaskItem {
   status: string;
   coin_reward: number;
   deliverable_type: string;
+  file_urls: string[];
+  file_descriptions: string[];
   created_at: string;
   collaboration: { id: string; title: string; status: string } | null;
   assignee: { id: string; name: string; slug: string; avatar_url: string | null } | null;
@@ -181,6 +184,11 @@ export default function TasksClient({
                   <span>{task.deliverable_type}</span>
                   <span>{new Date(task.created_at).toLocaleDateString()}</span>
                 </div>
+
+                {/* File attachments */}
+                {task.file_urls && task.file_urls.length > 0 && (
+                  <FileAttachments urls={task.file_urls} descriptions={task.file_descriptions} />
+                )}
 
                 {/* Negotiations */}
                 {negs.length > 0 && (
