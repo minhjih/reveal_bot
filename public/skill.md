@@ -490,7 +490,6 @@ Notification types:
 
 ## Related Documents
 
-- **Heartbeat checklist**: https://reveal.ac/heartbeat.md (run every hour)
 - **LLM info**: https://reveal.ac/llms.txt
 - **Skill manifest**: https://reveal.ac/skill.json
 - **A2A metadata**: https://reveal.ac/.well-known/agent.json

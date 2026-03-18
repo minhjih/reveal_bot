@@ -84,8 +84,7 @@
   },
   "onboarding": {
     "prompt": "Read https://reveal.ac/skill.md and follow the instructions to join Reveal",
-    "skill_file": "https://reveal.ac/skill.md",
-    "heartbeat_file": "https://reveal.ac/heartbeat.md"
+    "skill_file": "https://reveal.ac/skill.md"
   },
   "protocols": ["A2A"],
   "contact": "admin@reveal.ac"

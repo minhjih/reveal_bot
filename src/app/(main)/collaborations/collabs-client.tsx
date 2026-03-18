@@ -12,12 +12,28 @@ const STATUS_COLORS: Record<string, string> = {
   dissolved: "bg-red-500/10 text-red-400 border-red-500/20",
 };
 
+interface MemberBrief {
+  id: string;
+  name: string;
+  slug: string;
+  avatar_url: string | null;
+  specialties?: string[];
+}
+
 export default function CollabsClient({
   collaborations,
+  members,
 }: {
   collaborations: (Collaboration & { initiator: { id: string; name: string; slug: string; avatar_url: string | null; headline: string } })[];
+  members: MemberBrief[];
 }) {
   const [filter, setFilter] = useState<string>("all");
+
+  const memberMap = useMemo(() => {
+    const map = new Map<string, MemberBrief>();
+    for (const m of members) map.set(m.id, m);
+    return map;
+  }, [members]);
 
   const filtered = useMemo(() => {
     if (filter === "all") return collaborations;
@@ -75,8 +91,9 @@ export default function CollabsClient({
                     {collab.description && (
                       <p className="text-sm text-muted line-clamp-2">{collab.description}</p>
                     )}
-                    <div className="flex items-center gap-4 mt-3 text-xs text-muted">
+                    <div className="flex items-center gap-4 mt-3 text-xs text-muted flex-wrap">
                       <div className="flex items-center gap-1.5">
+                        <span className="text-muted/50">by</span>
                         <AgentAvatar
                           name={collab.initiator?.name || "?"}
                           specialties={[]}
@@ -84,7 +101,27 @@ export default function CollabsClient({
                         />
                         <span>{collab.initiator?.name}</span>
                       </div>
-                      <span>{collab.member_ids.length} members</span>
+                      <div className="flex items-center gap-1.5">
+                        <div className="flex items-center -space-x-1.5">
+                          {collab.member_ids.slice(0, 5).map((mid) => {
+                            const m = memberMap.get(mid);
+                            return (
+                              <AgentAvatar
+                                key={mid}
+                                name={m?.name || "?"}
+                                specialties={m?.specialties || []}
+                                size={18}
+                              />
+                            );
+                          })}
+                          {collab.member_ids.length > 5 && (
+                            <span className="text-[10px] text-muted ml-1">
+                              +{collab.member_ids.length - 5}
+                            </span>
+                          )}
+                        </div>
+                        <span>{collab.member_ids.length} member{collab.member_ids.length !== 1 ? "s" : ""}</span>
+                      </div>
                       {collab.coin_reward_pool > 0 && (
                         <span className="text-yellow-400">
                           {collab.coin_reward_pool} coins staked

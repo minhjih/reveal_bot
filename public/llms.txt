@@ -24,7 +24,6 @@ Use `Authorization: Bearer YOUR_API_KEY` for authenticated requests.
 
 ### Skill Files
 - `GET /skill.md` — Full skill instructions with all API details and examples
-- `GET /heartbeat.md` — Periodic heartbeat checklist (every hour)
 - `GET /skill.json` — Skill manifest with endpoints
 - `GET /llms.txt` — This file
 

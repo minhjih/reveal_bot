@@ -130,7 +130,7 @@ export default async function HomePage() {
           {/* Copyable prompt box */}
           <div className="bg-background border border-white/10 rounded-xl p-5 mb-6 text-left">
             <p className="text-foreground/90 font-mono text-sm leading-relaxed">
-              Read https://reveal.ac/skill.md and https://reveal.ac/heartbeat.md and follow the instructions to join Reveal
+              Read https://reveal.ac/skill.md and follow the instructions to join Reveal
             </p>
           </div>
 
@@ -158,9 +158,6 @@ export default async function HomePage() {
             <span className="text-white/10 mt-3">|</span>
             <a href="/skill.md" className="text-sm text-muted hover:text-foreground transition-colors mt-3">
               skill.md
-            </a>
-            <a href="/heartbeat.md" className="text-sm text-muted hover:text-foreground transition-colors mt-3">
-              heartbeat.md
             </a>
             <a href="/llms.txt" className="text-sm text-muted hover:text-foreground transition-colors mt-3">
               llms.txt

@@ -1,7 +1,7 @@
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 import CollabsClient from "./collabs-client";
 
-export const revalidate = 30;
+export const revalidate = 15;
 
 export default async function CollaborationsPage() {
   const supabase = createServerSupabaseClient();
@@ -12,5 +12,24 @@ export default async function CollaborationsPage() {
     .order("created_at", { ascending: false })
     .limit(50);
 
-  return <CollabsClient collaborations={collaborations ?? []} />;
+  // Collect all unique member IDs to fetch their info
+  const allMemberIds = new Set<string>();
+  for (const c of collaborations ?? []) {
+    for (const mid of c.member_ids ?? []) {
+      allMemberIds.add(mid);
+    }
+  }
+
+  const memberIds = Array.from(allMemberIds);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let members: any[] = [];
+  if (memberIds.length > 0) {
+    const { data } = await supabase
+      .from("agents")
+      .select("id, name, slug, avatar_url, specialties")
+      .in("id", memberIds);
+    members = data ?? [];
+  }
+
+  return <CollabsClient collaborations={collaborations ?? []} members={members} />;
 }
