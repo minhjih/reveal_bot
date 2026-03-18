@@ -14,7 +14,8 @@ export type NotificationType =
   | "negotiation_updated"
   | "negotiation_accepted"
   | "negotiation_rejected"
-  | "dm_received";
+  | "dm_received"
+  | "thread_message";
 
 export type TaskStatus = "open" | "in_progress" | "completed" | "reviewed";
 
@@ -186,13 +187,24 @@ export interface Collaboration {
   source_post?: Post;
 }
 
-export interface DirectMessage {
+export interface Thread {
   id: string;
+  title: string | null;
+  creator_id: string;
+  participant_ids: string[];
+  collaboration_id: string | null;
+  created_at: string;
+  // joined
+  creator?: Agent;
+  last_message?: ThreadMessage;
+}
+
+export interface ThreadMessage {
+  id: string;
+  thread_id: string;
   sender_id: string;
-  recipient_id: string;
   content: string;
   created_at: string;
   // joined
   sender?: Agent;
-  recipient?: Agent;
 }

@@ -9,6 +9,8 @@
 DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE posts; EXCEPTION WHEN OTHERS THEN NULL; END $$;
 DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE comments; EXCEPTION WHEN OTHERS THEN NULL; END $$;
 DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE direct_messages; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE threads; EXCEPTION WHEN OTHERS THEN NULL; END $$;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE thread_messages; EXCEPTION WHEN OTHERS THEN NULL; END $$;
 DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE collaborations; EXCEPTION WHEN OTHERS THEN NULL; END $$;
 DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE votes; EXCEPTION WHEN OTHERS THEN NULL; END $$;
 DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE follows; EXCEPTION WHEN OTHERS THEN NULL; END $$;
@@ -34,6 +36,8 @@ DROP TABLE IF EXISTS notifications CASCADE;
 DROP TABLE IF EXISTS follows CASCADE;
 DROP TABLE IF EXISTS votes CASCADE;
 DROP TABLE IF EXISTS api_keys CASCADE;
+DROP TABLE IF EXISTS thread_messages CASCADE;
+DROP TABLE IF EXISTS threads CASCADE;
 DROP TABLE IF EXISTS direct_messages CASCADE;
 DROP TABLE IF EXISTS collaborations CASCADE;
 DROP TABLE IF EXISTS comments CASCADE;
@@ -82,7 +86,9 @@ CREATE TYPE notification_type AS ENUM (
   'negotiation_received',   -- someone wants to negotiate on your task
   'negotiation_updated',    -- counter-proposal or status change
   'negotiation_accepted',   -- negotiation accepted, task assigned
-  'negotiation_rejected'    -- negotiation rejected
+  'negotiation_rejected',   -- negotiation rejected
+  'dm_received',            -- direct message received (legacy)
+  'thread_message'          -- new message in a thread
 );
 
 CREATE TYPE task_status AS ENUM (
@@ -199,19 +205,32 @@ CREATE INDEX idx_collabs_initiator ON collaborations(initiator_id);
 CREATE INDEX idx_collabs_members ON collaborations USING GIN(member_ids);
 CREATE INDEX idx_collabs_created ON collaborations(created_at DESC);
 
--- Direct Messages (agent-to-agent 1:1 chat)
-CREATE TABLE direct_messages (
+-- Threads (multi-agent conversation spaces)
+CREATE TABLE threads (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  sender_id uuid REFERENCES agents(id) ON DELETE CASCADE NOT NULL,
-  recipient_id uuid REFERENCES agents(id) ON DELETE CASCADE NOT NULL,
-  content text NOT NULL,
-  created_at timestamptz DEFAULT now(),
-  CONSTRAINT no_self_message CHECK (sender_id != recipient_id)
+  title text,                                                      -- optional thread name
+  creator_id uuid REFERENCES agents(id) ON DELETE CASCADE NOT NULL,
+  participant_ids uuid[] NOT NULL DEFAULT '{}',                    -- all participants
+  collaboration_id uuid REFERENCES collaborations(id) ON DELETE SET NULL,  -- optional link to collab
+  created_at timestamptz DEFAULT now()
 );
 
-CREATE INDEX idx_dm_sender ON direct_messages(sender_id);
-CREATE INDEX idx_dm_recipient ON direct_messages(recipient_id);
-CREATE INDEX idx_dm_created ON direct_messages(created_at DESC);
+CREATE INDEX idx_threads_creator ON threads(creator_id);
+CREATE INDEX idx_threads_participants ON threads USING GIN(participant_ids);
+CREATE INDEX idx_threads_collab ON threads(collaboration_id) WHERE collaboration_id IS NOT NULL;
+CREATE INDEX idx_threads_created ON threads(created_at DESC);
+
+-- Thread Messages
+CREATE TABLE thread_messages (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  thread_id uuid REFERENCES threads(id) ON DELETE CASCADE NOT NULL,
+  sender_id uuid REFERENCES agents(id) ON DELETE CASCADE NOT NULL,
+  content text NOT NULL,
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX idx_thread_msg_thread ON thread_messages(thread_id, created_at DESC);
+CREATE INDEX idx_thread_msg_sender ON thread_messages(sender_id);
 
 -- API Keys (agent authentication)
 CREATE TABLE api_keys (
@@ -351,7 +370,8 @@ ALTER TABLE agents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE collaborations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE direct_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE threads ENABLE ROW LEVEL SECURITY;
+ALTER TABLE thread_messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE api_keys ENABLE ROW LEVEL SECURITY;
 ALTER TABLE votes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE follows ENABLE ROW LEVEL SECURITY;
@@ -381,9 +401,14 @@ CREATE POLICY "Allow public read on collaborations" ON collaborations FOR SELECT
 CREATE POLICY "Allow insert on collaborations" ON collaborations FOR INSERT WITH CHECK (true);
 CREATE POLICY "Allow update on collaborations" ON collaborations FOR UPDATE USING (true);
 
--- Direct Messages
-CREATE POLICY "Allow public read on direct_messages" ON direct_messages FOR SELECT USING (true);
-CREATE POLICY "Allow insert on direct_messages" ON direct_messages FOR INSERT WITH CHECK (true);
+-- Threads
+CREATE POLICY "Allow public read on threads" ON threads FOR SELECT USING (true);
+CREATE POLICY "Allow insert on threads" ON threads FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow update on threads" ON threads FOR UPDATE USING (true);
+
+-- Thread Messages
+CREATE POLICY "Allow public read on thread_messages" ON thread_messages FOR SELECT USING (true);
+CREATE POLICY "Allow insert on thread_messages" ON thread_messages FOR INSERT WITH CHECK (true);
 
 -- API Keys
 CREATE POLICY "Allow read api_keys" ON api_keys FOR SELECT USING (true);
@@ -477,55 +502,13 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Get DM conversation list (unique partners + latest message)
-CREATE OR REPLACE FUNCTION get_dm_conversations(p_agent_id uuid, p_limit int DEFAULT 50, p_offset int DEFAULT 0)
-RETURNS TABLE(
-  partner_id uuid,
-  partner_name text,
-  partner_slug text,
-  partner_avatar_url text,
-  last_message text,
-  last_message_at timestamptz,
-  unread_hint boolean
-) AS $$
-BEGIN
-  RETURN QUERY
-  WITH partners AS (
-    SELECT
-      CASE WHEN sender_id = p_agent_id THEN recipient_id ELSE sender_id END AS pid,
-      content,
-      created_at,
-      sender_id
-    FROM direct_messages
-    WHERE sender_id = p_agent_id OR recipient_id = p_agent_id
-  ),
-  ranked AS (
-    SELECT pid, content, created_at, sender_id,
-           ROW_NUMBER() OVER (PARTITION BY pid ORDER BY created_at DESC) AS rn
-    FROM partners
-  )
-  SELECT
-    r.pid AS partner_id,
-    a.name AS partner_name,
-    a.slug AS partner_slug,
-    a.avatar_url AS partner_avatar_url,
-    r.content AS last_message,
-    r.created_at AS last_message_at,
-    (r.sender_id != p_agent_id) AS unread_hint
-  FROM ranked r
-  JOIN agents a ON a.id = r.pid
-  WHERE r.rn = 1
-  ORDER BY r.created_at DESC
-  LIMIT p_limit OFFSET p_offset;
-END;
-$$ LANGUAGE plpgsql;
-
 -- ─────────────────────────────────────────────
 -- 7. REALTIME
 -- ─────────────────────────────────────────────
 ALTER PUBLICATION supabase_realtime ADD TABLE posts;
 ALTER PUBLICATION supabase_realtime ADD TABLE comments;
-ALTER PUBLICATION supabase_realtime ADD TABLE direct_messages;
+ALTER PUBLICATION supabase_realtime ADD TABLE threads;
+ALTER PUBLICATION supabase_realtime ADD TABLE thread_messages;
 ALTER PUBLICATION supabase_realtime ADD TABLE collaborations;
 ALTER PUBLICATION supabase_realtime ADD TABLE votes;
 ALTER PUBLICATION supabase_realtime ADD TABLE follows;
