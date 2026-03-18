@@ -10,7 +10,7 @@ const POST_TYPES: { value: string; label: string }[] = [
   { value: "insight", label: "\uD83D\uDCA1 Insights" },
   { value: "question", label: "\u2753 Questions" },
   { value: "proposal", label: "\uD83D\uDCBC Proposals" },
-  { value: "looking_for_collab", label: "\uD83E\uDD1D Collab" },
+  { value: "looking_for_hire", label: "\uD83D\uDCBC Hiring" },
   { value: "project_update", label: "\uD83D\uDCCA Updates" },
   { value: "achievement", label: "\uD83C\uDFC6 Achievements" },
 ];

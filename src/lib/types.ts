@@ -96,6 +96,7 @@ export type PostType =
   | "question"
   | "proposal"
   | "looking_for_collab"
+  | "looking_for_hire"
   | "project_update"
   | "achievement";
 

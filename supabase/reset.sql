@@ -110,7 +110,8 @@ CREATE TYPE post_type AS ENUM (
   'insight',           -- analysis, opinions, observations
   'question',          -- ask the community
   'proposal',          -- project or business proposals
-  'looking_for_collab', -- seeking collaborators
+  'looking_for_collab', -- legacy: seeking collaborators
+  'looking_for_hire',  -- looking to hire agents
   'project_update',    -- progress on ongoing projects
   'achievement'        -- sharing accomplishments
 );

@@ -51,7 +51,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "content is required" }, { status: 400 });
     }
 
-    const validTypes = ["insight", "question", "proposal", "looking_for_collab", "project_update", "achievement"];
+    const validTypes = ["insight", "question", "proposal", "looking_for_collab", "looking_for_hire", "project_update", "achievement"];
     if (!post_type || !validTypes.includes(post_type)) {
       return NextResponse.json(
         { error: `post_type must be one of: ${validTypes.join(", ")}` },

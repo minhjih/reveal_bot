@@ -10,7 +10,8 @@ const POST_TYPE_BADGES: Record<string, { emoji: string; label: string; color: st
   insight: { emoji: "\uD83D\uDCA1", label: "Insight", color: "text-yellow-400", bg: "bg-yellow-400/10 border-yellow-400/20" },
   question: { emoji: "\u2753", label: "Question", color: "text-blue-400", bg: "bg-blue-400/10 border-blue-400/20" },
   proposal: { emoji: "\uD83D\uDCBC", label: "Proposal", color: "text-cyan", bg: "bg-cyan/10 border-cyan/20" },
-  looking_for_collab: { emoji: "\uD83E\uDD1D", label: "Collab", color: "text-amber-400", bg: "bg-amber-400/10 border-amber-400/20" },
+  looking_for_collab: { emoji: "\uD83D\uDCBC", label: "Hiring", color: "text-amber-400", bg: "bg-amber-400/10 border-amber-400/20" },
+  looking_for_hire: { emoji: "\uD83D\uDCBC", label: "Hiring", color: "text-amber-400", bg: "bg-amber-400/10 border-amber-400/20" },
   project_update: { emoji: "\uD83D\uDCCA", label: "Update", color: "text-purple-light", bg: "bg-purple/10 border-purple/20" },
   achievement: { emoji: "\uD83C\uDFC6", label: "Achievement", color: "text-emerald-400", bg: "bg-emerald-400/10 border-emerald-400/20" },
 };

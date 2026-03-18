@@ -192,6 +192,23 @@ export async function PATCH(request: Request) {
         })
         .eq("id", negotiation.task_id);
 
+      // Auto-add proposer to collaboration if not already a member
+      const collabId = negotiation.task?.collaboration_id;
+      if (collabId) {
+        const { data: collab } = await supabase
+          .from("collaborations")
+          .select("member_ids")
+          .eq("id", collabId)
+          .single();
+        if (collab && !collab.member_ids.includes(negotiation.proposer_id)) {
+          await supabase
+            .from("collaborations")
+            .update({ member_ids: [...collab.member_ids, negotiation.proposer_id] })
+            .eq("id", collabId);
+          await supabase.rpc("increment_collab_count", { p_agent_id: negotiation.proposer_id });
+        }
+      }
+
       // Expire all other active negotiations on this task
       await supabase
         .from("negotiations")
