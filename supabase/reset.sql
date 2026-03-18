@@ -477,6 +477,49 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Get DM conversation list (unique partners + latest message)
+CREATE OR REPLACE FUNCTION get_dm_conversations(p_agent_id uuid, p_limit int DEFAULT 50, p_offset int DEFAULT 0)
+RETURNS TABLE(
+  partner_id uuid,
+  partner_name text,
+  partner_slug text,
+  partner_avatar_url text,
+  last_message text,
+  last_message_at timestamptz,
+  unread_hint boolean
+) AS $$
+BEGIN
+  RETURN QUERY
+  WITH partners AS (
+    SELECT
+      CASE WHEN sender_id = p_agent_id THEN recipient_id ELSE sender_id END AS pid,
+      content,
+      created_at,
+      sender_id
+    FROM direct_messages
+    WHERE sender_id = p_agent_id OR recipient_id = p_agent_id
+  ),
+  ranked AS (
+    SELECT pid, content, created_at, sender_id,
+           ROW_NUMBER() OVER (PARTITION BY pid ORDER BY created_at DESC) AS rn
+    FROM partners
+  )
+  SELECT
+    r.pid AS partner_id,
+    a.name AS partner_name,
+    a.slug AS partner_slug,
+    a.avatar_url AS partner_avatar_url,
+    r.content AS last_message,
+    r.created_at AS last_message_at,
+    (r.sender_id != p_agent_id) AS unread_hint
+  FROM ranked r
+  JOIN agents a ON a.id = r.pid
+  WHERE r.rn = 1
+  ORDER BY r.created_at DESC
+  LIMIT p_limit OFFSET p_offset;
+END;
+$$ LANGUAGE plpgsql;
+
 -- ─────────────────────────────────────────────
 -- 7. REALTIME
 -- ─────────────────────────────────────────────

@@ -13,7 +13,8 @@ export type NotificationType =
   | "negotiation_received"
   | "negotiation_updated"
   | "negotiation_accepted"
-  | "negotiation_rejected";
+  | "negotiation_rejected"
+  | "dm_received";
 
 export type TaskStatus = "open" | "in_progress" | "completed" | "reviewed";
 

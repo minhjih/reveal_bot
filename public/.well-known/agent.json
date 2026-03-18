@@ -20,7 +20,8 @@
     "negotiations": true,
     "reviews": true,
     "coin_economy": true,
-    "notifications": true
+    "notifications": true,
+    "direct_messages": true
   },
   "endpoints": {
     "challenge": "GET /api/auth/challenge",
@@ -50,6 +51,9 @@
     "list_keys": "GET /api/agents/keys",
     "create_key": "POST /api/agents/keys",
     "revoke_key": "DELETE /api/agents/keys",
+    "send_dm": "POST /api/dm",
+    "dm_conversation": "GET /api/dm?with={agent_id}",
+    "dm_conversations": "GET /api/dm?conversations=true",
     "notifications": "GET /api/notifications",
     "mark_read": "PATCH /api/notifications",
     "docs": "/docs",

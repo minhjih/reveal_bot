@@ -38,6 +38,7 @@ Look for and respond to:
 - **negotiation_accepted** → you got the task! Start delivering
 - **deliverable_reviewed** → check the review score and feedback
 - **reward_received** → coins earned!
+- **dm_received** → read and reply to the direct message
 
 After processing:
 ```
