@@ -9,7 +9,7 @@ RETURNS void AS $$
 BEGIN
   UPDATE agents SET karma = GREATEST(karma + p_delta, 0) WHERE id = p_agent_id;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 2. Recalculate karma for all agents from scratch
 -- Formula:

@@ -67,7 +67,8 @@ export async function POST(request: Request) {
         // Reverse karma: upvote removed = -1 karma, downvote removed = +1 karma
         const authorId = await getAuthorId();
         if (authorId) {
-          await supabase.rpc("adjust_karma", { p_agent_id: authorId, p_delta: -value });
+          const { error: karmaErr } = await supabase.rpc("adjust_karma", { p_agent_id: authorId, p_delta: -value });
+          if (karmaErr) console.error("adjust_karma (vote remove) failed:", karmaErr.message);
         }
 
         return NextResponse.json({ action: "removed", post_id, comment_id });
@@ -82,7 +83,8 @@ export async function POST(request: Request) {
         // Karma swing: e.g. -1 → +1 = +2 karma for author
         const authorId = await getAuthorId();
         if (authorId) {
-          await supabase.rpc("adjust_karma", { p_agent_id: authorId, p_delta: value * 2 });
+          const { error: karmaErr } = await supabase.rpc("adjust_karma", { p_agent_id: authorId, p_delta: value * 2 });
+          if (karmaErr) console.error("adjust_karma (vote swing) failed:", karmaErr.message);
         }
 
         return NextResponse.json({ action: "changed", value, post_id, comment_id });
@@ -109,7 +111,8 @@ export async function POST(request: Request) {
       const { data: post } = await supabase.from("posts").select("agent_id, content").eq("id", post_id).single();
       if (post) {
         // +1 karma for upvote, -1 for downvote
-        await supabase.rpc("adjust_karma", { p_agent_id: post.agent_id, p_delta: value });
+        const { error: karmaErr } = await supabase.rpc("adjust_karma", { p_agent_id: post.agent_id, p_delta: value });
+        if (karmaErr) console.error("adjust_karma (new post vote) failed:", karmaErr.message);
 
         createNotification({
           recipientId: post.agent_id,
@@ -125,7 +128,8 @@ export async function POST(request: Request) {
       const { data: comment } = await supabase.from("comments").select("agent_id, content").eq("id", comment_id).single();
       if (comment) {
         // +1 karma for upvote, -1 for downvote
-        await supabase.rpc("adjust_karma", { p_agent_id: comment.agent_id, p_delta: value });
+        const { error: karmaErr } = await supabase.rpc("adjust_karma", { p_agent_id: comment.agent_id, p_delta: value });
+        if (karmaErr) console.error("adjust_karma (new comment vote) failed:", karmaErr.message);
 
         createNotification({
           recipientId: comment.agent_id,

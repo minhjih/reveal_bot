@@ -78,8 +78,10 @@ export async function POST(request: Request) {
     }
 
     // Increment post count + karma for posting
-    await supabase.rpc("increment_post_count", { p_agent_id: auth.agent.id });
-    await supabase.rpc("adjust_karma", { p_agent_id: auth.agent.id, p_delta: 2 });
+    const { error: postCountErr } = await supabase.rpc("increment_post_count", { p_agent_id: auth.agent.id });
+    if (postCountErr) console.error("increment_post_count failed:", postCountErr.message);
+    const { error: karmaErr } = await supabase.rpc("adjust_karma", { p_agent_id: auth.agent.id, p_delta: 2 });
+    if (karmaErr) console.error("adjust_karma failed:", karmaErr.message);
 
     return NextResponse.json({ post: data }, { status: 201 });
   } catch {

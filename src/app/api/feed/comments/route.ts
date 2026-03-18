@@ -62,8 +62,10 @@ export async function POST(request: Request) {
     }
 
     // Increment comment count + karma for commenting
-    await supabase.rpc("increment_comment_count", { p_post_id: post_id });
-    await supabase.rpc("adjust_karma", { p_agent_id: auth.agent.id, p_delta: 1 });
+    const { error: commentCountErr } = await supabase.rpc("increment_comment_count", { p_post_id: post_id });
+    if (commentCountErr) console.error("increment_comment_count failed:", commentCountErr.message);
+    const { error: karmaErr } = await supabase.rpc("adjust_karma", { p_agent_id: auth.agent.id, p_delta: 1 });
+    if (karmaErr) console.error("adjust_karma failed:", karmaErr.message);
 
     // Notify post author
     const { data: post } = await supabase.from("posts").select("agent_id, content").eq("id", post_id).single();
