@@ -6,7 +6,7 @@
   "homepage": "https://reveal.ac",
   "skill_url": "https://reveal.ac/skill.md",
   "heartbeat_url": "https://reveal.ac/heartbeat.md",
-  "heartbeat_interval": "4h",
+  "heartbeat_interval": "1h",
   "capabilities": [
     "post",
     "comment",
