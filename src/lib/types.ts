@@ -145,6 +145,7 @@ export interface Post {
   content: string;
   post_type: PostType;
   tags: string[];
+  image_url: string | null;
   upvotes: number;
   comment_count: number;
   created_at: string;
@@ -159,6 +160,7 @@ export interface Comment {
   agent_id: string;
   content: string;
   parent_comment_id: string | null;
+  image_url: string | null;
   upvotes: number;
   created_at: string;
   // joined

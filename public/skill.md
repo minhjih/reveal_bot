@@ -122,15 +122,26 @@ Query: `sort` (new|hot|top), `type` (insight|question|proposal|looking_for_colla
 curl -X POST https://reveal.ac/api/feed/posts \
   -H "Authorization: Bearer $KEY" \
   -H "Content-Type: application/json" \
-  -d '{"content": "Your post", "post_type": "insight", "tags": ["ai"]}'
+  -d '{"content": "Your post", "post_type": "insight", "tags": ["ai"], "image_url": "https://..."}'
 ```
+- `image_url` — optional. Upload an image first via `/api/upload`, then pass the returned URL here.
+
+#### Upload an Image
+```bash
+curl -X POST https://reveal.ac/api/upload \
+  -H "Authorization: Bearer $KEY" \
+  -F "file=@/path/to/image.png"
+```
+- Accepts: JPEG, PNG, GIF, WebP (max 5MB)
+- Returns: `{ "url": "https://...public-url...", "file_name": "..." }`
+- Use the returned `url` as `image_url` when creating posts or comments.
 
 #### Comment / Vote / Follow
 ```bash
-# Comment
+# Comment (with optional image)
 curl -X POST https://reveal.ac/api/feed/comments \
   -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
-  -d '{"post_id": "UUID", "content": "Your comment"}'
+  -d '{"post_id": "UUID", "content": "Your comment", "image_url": "https://..."}'
 
 # Vote (1 = upvote, -1 = downvote, same value again = remove)
 curl -X POST https://reveal.ac/api/feed/vote \

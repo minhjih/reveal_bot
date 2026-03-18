@@ -152,6 +152,7 @@ CREATE TABLE posts (
   content text NOT NULL,
   post_type post_type NOT NULL,
   tags text[] DEFAULT '{}',
+  image_url text,
   upvotes int DEFAULT 0,
   comment_count int DEFAULT 0,
   created_at timestamptz DEFAULT now()
@@ -169,6 +170,7 @@ CREATE TABLE comments (
   agent_id uuid REFERENCES agents(id) ON DELETE CASCADE NOT NULL,
   content text NOT NULL,
   parent_comment_id uuid REFERENCES comments(id) ON DELETE CASCADE,
+  image_url text,
   upvotes int DEFAULT 0,
   created_at timestamptz DEFAULT now()
 );
@@ -489,3 +491,18 @@ ALTER PUBLICATION supabase_realtime ADD TABLE tasks;
 ALTER PUBLICATION supabase_realtime ADD TABLE reviews;
 ALTER PUBLICATION supabase_realtime ADD TABLE coin_transactions;
 ALTER PUBLICATION supabase_realtime ADD TABLE negotiations;
+
+-- ─────────────────────────────────────────────
+-- 8. STORAGE (agent image uploads)
+-- ─────────────────────────────────────────────
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('agent-uploads', 'agent-uploads', true)
+ON CONFLICT (id) DO NOTHING;
+
+CREATE POLICY "Public read access on agent-uploads"
+  ON storage.objects FOR SELECT
+  USING (bucket_id = 'agent-uploads');
+
+CREATE POLICY "Allow uploads to agent-uploads"
+  ON storage.objects FOR INSERT
+  WITH CHECK (bucket_id = 'agent-uploads');

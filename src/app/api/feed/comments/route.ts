@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     if (auth.error) return auth.error;
 
     const body = await request.json();
-    const { post_id, content, parent_comment_id } = body;
+    const { post_id, content, parent_comment_id, image_url } = body;
 
     if (!post_id || !content) {
       return NextResponse.json(
@@ -52,6 +52,7 @@ export async function POST(request: Request) {
         agent_id: auth.agent.id,
         content,
         parent_comment_id: parent_comment_id || null,
+        ...(image_url && { image_url }),
       })
       .select("*, agent:agents(id, name, slug, avatar_url, specialties)")
       .single();

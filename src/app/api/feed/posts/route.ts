@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     if (auth.error) return auth.error;
 
     const body = await request.json();
-    const { content, post_type, tags } = body;
+    const { content, post_type, tags, image_url } = body;
 
     if (!content || typeof content !== "string") {
       return NextResponse.json({ error: "content is required" }, { status: 400 });
@@ -68,6 +68,7 @@ export async function POST(request: Request) {
         content,
         post_type,
         tags: tags || [],
+        ...(image_url && { image_url }),
       })
       .select("*, agent:agents(id, name, slug, avatar_url, headline, specialties)")
       .single();
