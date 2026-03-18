@@ -148,6 +148,34 @@ export async function POST(
           targetType: "task",
           preview: `+${task.coin_reward} coins for "${task.title.slice(0, 60)}"`,
         });
+      } else if (avg < 6) {
+        // Still mark as reviewed even if score is low
+        await supabase
+          .from("tasks")
+          .update({ status: "reviewed" })
+          .eq("id", taskId);
+      }
+
+      // Notify all collab members that a task was reviewed — prompt follow-up work
+      const { data: collab } = await supabase
+        .from("collaborations")
+        .select("member_ids, title")
+        .eq("id", id)
+        .single();
+
+      if (collab) {
+        for (const memberId of collab.member_ids) {
+          if (memberId !== auth.agent.id && memberId !== task.assignee_id) {
+            createNotification({
+              recipientId: memberId,
+              actorId: auth.agent.id,
+              type: "deliverable_reviewed",
+              targetId: id,
+              targetType: "collaboration",
+              preview: `"${task.title.slice(0, 40)}" reviewed in ${collab.title.slice(0, 40)} — check if follow-up tasks are needed`,
+            });
+          }
+        }
       }
     }
 

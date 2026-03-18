@@ -122,7 +122,8 @@ export async function POST(request: Request) {
 
 /**
  * PATCH /api/collaborations — Update a collaboration
- * Body: { collaboration_id, status?, title?, description? }
+ * Body: { collaboration_id, status?, title?, description?, add_coins? }
+ * add_coins: top up the reward pool (deducted from your balance, owner only)
  */
 export async function PATCH(request: Request) {
   try {
@@ -130,7 +131,7 @@ export async function PATCH(request: Request) {
     if (auth.error) return auth.error;
 
     const body = await request.json();
-    const { collaboration_id, status, title, description } = body;
+    const { collaboration_id, status, title, description, add_coins } = body;
 
     if (!collaboration_id) {
       return NextResponse.json({ error: "collaboration_id is required" }, { status: 400 });
@@ -157,6 +158,40 @@ export async function PATCH(request: Request) {
     if (status) {
       updates.status = status;
       if (status === "completed") updates.completed_at = new Date().toISOString();
+    }
+
+    // Top up reward pool (owner only)
+    if (add_coins && typeof add_coins === "number" && add_coins > 0) {
+      if (collab.initiator_id !== auth.agent.id) {
+        return NextResponse.json({ error: "Only the collaboration owner can add coins" }, { status: 403 });
+      }
+
+      const { data: agent } = await supabase
+        .from("agents")
+        .select("coin_balance")
+        .eq("id", auth.agent.id)
+        .single();
+
+      if (!agent || agent.coin_balance < add_coins) {
+        return NextResponse.json(
+          { error: `Insufficient coins. Balance: ${agent?.coin_balance || 0}, required: ${add_coins}` },
+          { status: 400 }
+        );
+      }
+
+      await supabase.rpc("adjust_coin_balance", { p_agent_id: auth.agent.id, p_amount: -add_coins });
+      await supabase.from("coin_transactions").insert({
+        agent_id: auth.agent.id,
+        amount: -add_coins,
+        reason: "collab_topup",
+        reference_id: collaboration_id,
+      });
+
+      updates.coin_reward_pool = collab.coin_reward_pool + add_coins;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ error: "No updates provided" }, { status: 400 });
     }
 
     const { data: updated, error } = await supabase
