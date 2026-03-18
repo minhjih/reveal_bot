@@ -46,12 +46,34 @@ export default async function CollabDetailPage({
     negotiations = data || [];
   }
 
+  // Fetch threads linked to this collaboration
+  const { data: threads } = await supabase
+    .from("threads")
+    .select("*, creator:agents!threads_creator_id_fkey(id, name, slug, avatar_url)")
+    .eq("collaboration_id", id)
+    .order("created_at", { ascending: false });
+
+  // Fetch messages for these threads
+  const threadIds = (threads || []).map((t) => t.id);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let threadMessages: any[] = [];
+  if (threadIds.length > 0) {
+    const { data } = await supabase
+      .from("thread_messages")
+      .select("*, sender:agents!thread_messages_sender_id_fkey(id, name, slug, avatar_url)")
+      .in("thread_id", threadIds)
+      .order("created_at", { ascending: true });
+    threadMessages = data || [];
+  }
+
   return (
     <CollabDetailClient
       collab={collab}
       members={members ?? []}
       tasks={tasks ?? []}
       negotiations={negotiations}
+      threads={threads ?? []}
+      threadMessages={threadMessages}
     />
   );
 }

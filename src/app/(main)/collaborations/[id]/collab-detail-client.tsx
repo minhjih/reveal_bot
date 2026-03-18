@@ -26,6 +26,34 @@ const NEG_STATUS_COLORS: Record<string, string> = {
   expired: "bg-white/5 text-muted",
 };
 
+interface AgentBrief {
+  id: string;
+  name: string;
+  slug: string;
+  avatar_url: string | null;
+  specialties?: string[];
+}
+
+interface ThreadItem {
+  id: string;
+  title: string | null;
+  creator_id: string;
+  participant_ids: string[];
+  created_at: string;
+  creator: AgentBrief | null;
+}
+
+interface ThreadMsg {
+  id: string;
+  thread_id: string;
+  sender_id: string;
+  content: string;
+  file_urls: string[];
+  file_descriptions: string[];
+  created_at: string;
+  sender: AgentBrief | null;
+}
+
 interface CollabDetailProps {
   collab: {
     id: string;
@@ -74,6 +102,25 @@ interface CollabDetailProps {
     created_at: string;
     proposer: { id: string; name: string; slug: string; avatar_url: string | null } | null;
   }[];
+  threads: ThreadItem[];
+  threadMessages: ThreadMsg[];
+}
+
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(dateStr).toLocaleDateString();
+}
+
+function formatTime(dateStr: string): string {
+  const d = new Date(dateStr);
+  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
 export default function CollabDetailClient({
@@ -81,9 +128,18 @@ export default function CollabDetailClient({
   members,
   tasks,
   negotiations,
+  threads,
+  threadMessages,
 }: CollabDetailProps) {
   const taskNegotiations = (taskId: string) =>
     negotiations.filter((n) => n.task_id === taskId);
+
+  // Group messages by thread
+  const msgsByThread: Record<string, ThreadMsg[]> = {};
+  for (const msg of threadMessages) {
+    if (!msgsByThread[msg.thread_id]) msgsByThread[msg.thread_id] = [];
+    msgsByThread[msg.thread_id].push(msg);
+  }
 
   return (
     <div className="space-y-6">
@@ -261,6 +317,137 @@ export default function CollabDetailClient({
             })
           )}
         </div>
+
+        {/* Threads / DM conversations */}
+        {threads.length > 0 && (
+          <div className="lg:col-span-2 space-y-4">
+            <h2 className="text-lg font-semibold text-foreground">
+              Conversations ({threads.length})
+            </h2>
+
+            {threads.map((thread) => {
+              const msgs = msgsByThread[thread.id] || [];
+              const memberMap: Record<string, (typeof members)[0]> = {};
+              for (const m of members) memberMap[m.id] = m;
+
+              return (
+                <div key={thread.id} className="card space-y-3">
+                  {/* Thread header */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-foreground text-sm">
+                        {thread.title ||
+                          thread.participant_ids
+                            .map((pid) => memberMap[pid]?.name || "?")
+                            .join(", ")}
+                      </h3>
+                      <span className="text-[10px] text-muted">
+                        {msgs.length} messages
+                      </span>
+                    </div>
+                    <Link
+                      href={`/threads/${thread.id}`}
+                      className="text-[10px] text-cyan hover:underline"
+                    >
+                      Full thread &rarr;
+                    </Link>
+                  </div>
+
+                  {/* Participant pills */}
+                  <div className="flex items-center gap-1 flex-wrap">
+                    {thread.participant_ids.map((pid) => {
+                      const agent = memberMap[pid];
+                      return (
+                        <div
+                          key={pid}
+                          className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-white/[0.03] text-[10px] text-muted"
+                        >
+                          <AgentAvatar
+                            name={agent?.name || "?"}
+                            specialties={agent?.specialties || []}
+                            size={14}
+                          />
+                          {agent?.name || "?"}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Messages (show last 10) */}
+                  {msgs.length === 0 ? (
+                    <p className="text-xs text-muted/50 italic">No messages yet</p>
+                  ) : (
+                    <div className="border-t border-white/5 pt-3 space-y-1 max-h-[400px] overflow-y-auto">
+                      {msgs.slice(-10).map((msg, i) => {
+                        const prevMsg = i > 0 ? msgs.slice(-10)[i - 1] : null;
+                        const sameAsPrev = prevMsg?.sender_id === msg.sender_id;
+                        const isConsecutive =
+                          sameAsPrev &&
+                          new Date(msg.created_at).getTime() -
+                            new Date(prevMsg!.created_at).getTime() <
+                            300000;
+
+                        return (
+                          <div
+                            key={msg.id}
+                            className={`flex items-start gap-2.5 px-2 py-1 rounded hover:bg-white/[0.02] ${
+                              isConsecutive ? "" : "mt-2"
+                            }`}
+                          >
+                            <div className="w-6 shrink-0 flex justify-center">
+                              {!isConsecutive && msg.sender ? (
+                                <AgentAvatar
+                                  name={msg.sender.name}
+                                  specialties={msg.sender.specialties || []}
+                                  size={24}
+                                />
+                              ) : (
+                                <span className="text-[8px] text-muted/30 mt-0.5">
+                                  {formatTime(msg.created_at)}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              {!isConsecutive && (
+                                <div className="flex items-baseline gap-1.5 mb-0.5">
+                                  <span className="text-xs font-semibold text-foreground">
+                                    {msg.sender?.name || "?"}
+                                  </span>
+                                  <span className="text-[9px] text-muted">
+                                    {timeAgo(msg.created_at)}
+                                  </span>
+                                </div>
+                              )}
+                              <p className="text-xs text-foreground/70 whitespace-pre-wrap break-words">
+                                {msg.content}
+                              </p>
+                              {msg.file_urls && msg.file_urls.length > 0 && (
+                                <div className="mt-1">
+                                  <FileAttachments
+                                    urls={msg.file_urls}
+                                    descriptions={msg.file_descriptions}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {msgs.length > 10 && (
+                        <Link
+                          href={`/threads/${thread.id}`}
+                          className="block text-center text-[10px] text-cyan hover:underline py-2"
+                        >
+                          View all {msgs.length} messages &rarr;
+                        </Link>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Sidebar: Members */}
         <div className="space-y-4">
