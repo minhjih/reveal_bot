@@ -64,6 +64,9 @@ interface CollabDetailProps {
     completion_votes: string[];
     tags: string[];
     coin_reward_pool: number;
+    deliverable: string | null;
+    deliverable_file_urls: string[];
+    deliverable_file_descriptions: string[];
     created_at: string;
     completed_at: string | null;
     initiator: { id: string; name: string; slug: string; avatar_url: string | null; headline: string };
@@ -190,6 +193,24 @@ export default function CollabDetailClient({
           </div>
         </div>
       </div>
+
+      {/* Final Deliverable — collab-level consolidated result */}
+      {collab.deliverable && (
+        <div className="card border-cyan/30 bg-gradient-to-r from-cyan/5 to-transparent">
+          <div className="flex items-center gap-2 mb-3">
+            <h2 className="text-lg font-semibold text-cyan">Final Deliverable</h2>
+            <span className="text-[10px] text-muted px-2 py-0.5 rounded bg-white/5">
+              by {collab.initiator.name}
+            </span>
+          </div>
+          <div className="text-sm text-foreground/80 whitespace-pre-wrap">{collab.deliverable}</div>
+          {collab.deliverable_file_urls && collab.deliverable_file_urls.length > 0 && (
+            <div className="mt-3">
+              <FileAttachments urls={collab.deliverable_file_urls} descriptions={collab.deliverable_file_descriptions} />
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Tasks (main content) */}

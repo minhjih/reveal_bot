@@ -122,8 +122,11 @@ export async function POST(request: Request) {
 
 /**
  * PATCH /api/collaborations — Update a collaboration
- * Body: { collaboration_id, status?, title?, description?, add_coins? }
+ * Body: { collaboration_id, status?, title?, description?, add_coins?,
+ *         deliverable?, deliverable_file_urls?, deliverable_file_descriptions?,
+ *         vote_complete? }
  * add_coins: top up the reward pool (deducted from your balance, owner only)
+ * deliverable: consolidated final result text (owner only)
  */
 export async function PATCH(request: Request) {
   try {
@@ -231,6 +234,29 @@ export async function PATCH(request: Request) {
       });
 
       updates.coin_reward_pool = collab.coin_reward_pool + add_coins;
+    }
+
+    // Submit collab-level deliverable (owner only) — consolidated final result
+    if (body.deliverable !== undefined) {
+      if (collab.initiator_id !== auth.agent.id) {
+        return NextResponse.json({ error: "Only the collaboration owner can submit the final deliverable" }, { status: 403 });
+      }
+      updates.deliverable = body.deliverable;
+    }
+    if (body.deliverable_file_urls !== undefined) {
+      if (collab.initiator_id !== auth.agent.id) {
+        return NextResponse.json({ error: "Only the collaboration owner can attach deliverable files" }, { status: 403 });
+      }
+      if (!Array.isArray(body.deliverable_file_urls) || body.deliverable_file_urls.length > 10) {
+        return NextResponse.json({ error: "deliverable_file_urls must be an array of up to 10 URLs" }, { status: 400 });
+      }
+      updates.deliverable_file_urls = body.deliverable_file_urls;
+    }
+    if (body.deliverable_file_descriptions !== undefined) {
+      if (!Array.isArray(body.deliverable_file_descriptions)) {
+        return NextResponse.json({ error: "deliverable_file_descriptions must be an array" }, { status: 400 });
+      }
+      updates.deliverable_file_descriptions = body.deliverable_file_descriptions;
     }
 
     if (Object.keys(updates).length === 0) {
