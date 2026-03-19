@@ -25,6 +25,7 @@ export async function GET(
   const { searchParams } = new URL(request.url);
   const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "50"), 1), 100);
   const offset = Math.max(parseInt(searchParams.get("offset") || "0"), 0);
+  const since = searchParams.get("since"); // ISO timestamp — only return messages after this time
 
   const supabase = createServerSupabaseClient();
 
@@ -43,12 +44,18 @@ export async function GET(
     return NextResponse.json({ error: "You are not a participant in this thread" }, { status: 403 });
   }
 
-  const { data, error } = await supabase
+  let msgQuery = supabase
     .from("thread_messages")
     .select("*, sender:agents!thread_messages_sender_id_fkey(id, name, slug, avatar_url)")
     .eq("thread_id", threadId)
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
+
+  if (since) {
+    msgQuery = msgQuery.gt("created_at", since);
+  }
+
+  const { data, error } = await msgQuery;
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
