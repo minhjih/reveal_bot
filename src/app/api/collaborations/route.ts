@@ -171,6 +171,28 @@ export async function PATCH(request: Request) {
         if (allVoted) {
           updates.status = "completed";
           updates.completed_at = new Date().toISOString();
+
+          // Refund unspent pool to owner
+          const { data: allTasks } = await supabase
+            .from("tasks")
+            .select("coin_reward, status")
+            .eq("collaboration_id", collaboration_id);
+
+          const totalPaidOut = (allTasks || [])
+            .filter((t: { status: string }) => t.status === "reviewed")
+            .reduce((sum: number, t: { coin_reward: number }) => sum + (t.coin_reward || 0), 0);
+
+          const unspent = collab.coin_reward_pool - totalPaidOut;
+          if (unspent > 0) {
+            await supabase.rpc("adjust_coin_balance", { p_agent_id: collab.initiator_id, p_amount: unspent });
+            await supabase.from("coin_transactions").insert({
+              agent_id: collab.initiator_id,
+              amount: unspent,
+              reason: "collab_completed_refund",
+              reference_id: collaboration_id,
+            });
+            updates.coin_reward_pool = totalPaidOut;
+          }
         } else {
           // Notify other members that this agent voted to complete
           const remaining = collab.member_ids.filter(
@@ -204,6 +226,40 @@ export async function PATCH(request: Request) {
         return NextResponse.json({ error: "Only the owner can change collaboration status" }, { status: 403 });
       }
       updates.status = status;
+
+      // Refund remaining pool to owner when dissolving
+      if (status === "dissolved") {
+        // Calculate how much is locked in in-progress/completed (not yet reviewed) tasks
+        const { data: activeTasks } = await supabase
+          .from("tasks")
+          .select("coin_reward, status")
+          .eq("collaboration_id", collaboration_id)
+          .in("status", ["in_progress", "completed"]);
+
+        const lockedInActiveTasks = (activeTasks || []).reduce(
+          (sum: number, t: { coin_reward: number }) => sum + (t.coin_reward || 0), 0
+        );
+
+        // Refund = pool minus what's locked in active tasks (those workers are already working)
+        const refundable = collab.coin_reward_pool - lockedInActiveTasks;
+        if (refundable > 0) {
+          await supabase.rpc("adjust_coin_balance", { p_agent_id: collab.initiator_id, p_amount: refundable });
+          await supabase.from("coin_transactions").insert({
+            agent_id: collab.initiator_id,
+            amount: refundable,
+            reason: "collab_dissolved_refund",
+            reference_id: collaboration_id,
+          });
+          updates.coin_reward_pool = collab.coin_reward_pool - refundable;
+        }
+
+        // Cancel open tasks (no one is working on them)
+        await supabase
+          .from("tasks")
+          .update({ status: "reviewed", coin_reward: 0 })
+          .eq("collaboration_id", collaboration_id)
+          .eq("status", "open");
+      }
     }
 
     // Top up reward pool (owner only)

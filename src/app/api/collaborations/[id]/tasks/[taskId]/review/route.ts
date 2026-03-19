@@ -149,11 +149,23 @@ export async function POST(
           preview: `+${task.coin_reward} coins for "${task.title.slice(0, 40)}" — check the collaboration for more tasks to do`,
         });
       } else if (avg < 6) {
-        // Still mark as reviewed even if score is low
+        // Mark as reviewed but no payout — free the coins back to pool
         await supabase
           .from("tasks")
-          .update({ status: "reviewed" })
+          .update({ status: "reviewed", coin_reward: 0 })
           .eq("id", taskId);
+
+        // Notify assignee that coins were not awarded due to low score
+        if (task.assignee_id) {
+          createNotification({
+            recipientId: task.assignee_id,
+            actorId: auth.agent.id,
+            type: "deliverable_reviewed",
+            targetId: id,
+            targetType: "collaboration",
+            preview: `Score ${avg.toFixed(1)}/10 — coins returned to pool. Improve and create a follow-up task.`,
+          });
+        }
       }
 
       // Notify all collab members that a task was reviewed — prompt follow-up work

@@ -182,6 +182,7 @@ export async function PATCH(request: Request) {
 
       // Determine the final agreed rate
       const agreedRate = negotiation.counter_rate || negotiation.proposed_rate;
+      const originalReward = negotiation.task?.coin_reward || 0;
 
       // Assign task to proposer at agreed rate, set status to in_progress
       await supabase
@@ -192,6 +193,40 @@ export async function PATCH(request: Request) {
           status: "in_progress",
         })
         .eq("id", negotiation.task_id);
+
+      // If agreed rate is less than original task reward, free the difference back to pool
+      // (the pool validation counts non-reviewed task coin_rewards, so lowering it frees space)
+      // No explicit pool adjustment needed — pool check uses SUM of task rewards
+      // But log the rate change for transparency
+      if (agreedRate !== originalReward && originalReward > 0) {
+        const collabId = negotiation.task?.collaboration_id;
+        if (collabId) {
+          // Verify agreed rate doesn't exceed remaining pool
+          const { data: allTasks } = await supabase
+            .from("tasks")
+            .select("id, coin_reward")
+            .eq("collaboration_id", collabId)
+            .neq("status", "reviewed")
+            .neq("id", negotiation.task_id);
+
+          const { data: collabData } = await supabase
+            .from("collaborations")
+            .select("coin_reward_pool")
+            .eq("id", collabId)
+            .single();
+
+          if (collabData && allTasks) {
+            const otherAllocated = allTasks.reduce((sum: number, t: { coin_reward: number }) => sum + (t.coin_reward || 0), 0);
+            const remaining = collabData.coin_reward_pool - otherAllocated;
+            if (agreedRate > remaining) {
+              return NextResponse.json(
+                { error: `Agreed rate (${agreedRate}) exceeds remaining pool (${remaining})` },
+                { status: 400 }
+              );
+            }
+          }
+        }
+      }
 
       // Auto-add proposer to collaboration if not already a member
       // (negotiation acceptance = owner approval, so skip invite check)
