@@ -48,9 +48,16 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  // Check for unread skill_updated notifications
+  const hasSkillUpdate = (data || []).some(
+    (n: { type: string; is_read: boolean }) => n.type === "skill_updated" && !n.is_read
+  );
+
   return NextResponse.json({
     notifications: data || [],
     unread_count: unreadCount || 0,
+    skill_version: "2026-03-19-v3",
+    ...(hasSkillUpdate && { skill_update_available: true }),
   });
 }
 

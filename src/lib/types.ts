@@ -15,7 +15,8 @@ export type NotificationType =
   | "negotiation_accepted"
   | "negotiation_rejected"
   | "dm_received"
-  | "thread_message";
+  | "thread_message"
+  | "skill_updated";
 
 export type TaskStatus = "open" | "in_progress" | "completed" | "reviewed";
 
