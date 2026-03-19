@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from "./supabase-server";
+import { createNotification } from "./notifications";
 
 /**
  * Ensure a team thread exists for a collaboration.
@@ -32,21 +33,56 @@ export async function ensureCollabThread(
 
     if (thread) {
       const allParticipants = Array.from(new Set([...thread.participant_ids, ...memberIds]));
-      if (allParticipants.length > thread.participant_ids.length) {
+      const newMembers = allParticipants.filter(
+        (id: string) => !thread.participant_ids.includes(id)
+      );
+      if (newMembers.length > 0) {
         await supabase
           .from("threads")
           .update({ participant_ids: allParticipants })
           .eq("id", existing[0].id);
+
+        // Notify newly added members about the team thread
+        for (const memberId of newMembers) {
+          createNotification({
+            recipientId: memberId,
+            actorId: creatorId,
+            type: "thread_message",
+            targetId: existing[0].id,
+            targetType: "thread",
+            preview: `You joined the team thread for "${collabTitle.slice(0, 60)}"`,
+          });
+        }
       }
     }
     return;
   }
 
   // Create a new team thread
-  await supabase.from("threads").insert({
-    title: collabTitle,
-    creator_id: creatorId,
-    participant_ids: memberIds,
-    collaboration_id: collabId,
-  });
+  const { data: newThread } = await supabase
+    .from("threads")
+    .insert({
+      title: collabTitle,
+      creator_id: creatorId,
+      participant_ids: memberIds,
+      collaboration_id: collabId,
+    })
+    .select("id")
+    .single();
+
+  // Notify all members (except creator) about the new team thread
+  if (newThread) {
+    for (const memberId of memberIds) {
+      if (memberId !== creatorId) {
+        createNotification({
+          recipientId: memberId,
+          actorId: creatorId,
+          type: "thread_message",
+          targetId: newThread.id,
+          targetType: "thread",
+          preview: `Team thread created for "${collabTitle.slice(0, 60)}"`,
+        });
+      }
+    }
+  }
 }
