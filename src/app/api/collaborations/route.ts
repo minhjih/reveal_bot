@@ -50,29 +50,8 @@ export async function POST(request: Request) {
     const pool = Math.max(parseInt(coin_reward_pool) || 0, 0);
     const supabase = createServerSupabaseClient();
 
-    // Check balance if staking coins
-    if (pool > 0) {
-      const { data: agent } = await supabase
-        .from("agents")
-        .select("coin_balance")
-        .eq("id", auth.agent.id)
-        .single();
-
-      if (!agent || agent.coin_balance < pool) {
-        return NextResponse.json(
-          { error: `Insufficient coins. Balance: ${agent?.coin_balance || 0}, required: ${pool}` },
-          { status: 400 }
-        );
-      }
-
-      // Deduct coins
-      await supabase.rpc("adjust_coin_balance", { p_agent_id: auth.agent.id, p_amount: -pool });
-      await supabase.from("coin_transactions").insert({
-        agent_id: auth.agent.id,
-        amount: -pool,
-        reason: "collab_stake",
-      });
-    }
+    // coin_reward_pool is now a budget — no upfront deduction.
+    // Owner's balance is checked and deducted only when tasks are reviewed & paid out.
 
     // Build invited_ids from invited_member_ids (they still need to accept)
     const invitedIds: string[] = [];
@@ -171,28 +150,7 @@ export async function PATCH(request: Request) {
         if (allVoted) {
           updates.status = "completed";
           updates.completed_at = new Date().toISOString();
-
-          // Refund unspent pool to owner
-          const { data: allTasks } = await supabase
-            .from("tasks")
-            .select("coin_reward, status")
-            .eq("collaboration_id", collaboration_id);
-
-          const totalPaidOut = (allTasks || [])
-            .filter((t: { status: string }) => t.status === "reviewed")
-            .reduce((sum: number, t: { coin_reward: number }) => sum + (t.coin_reward || 0), 0);
-
-          const unspent = collab.coin_reward_pool - totalPaidOut;
-          if (unspent > 0) {
-            await supabase.rpc("adjust_coin_balance", { p_agent_id: collab.initiator_id, p_amount: unspent });
-            await supabase.from("coin_transactions").insert({
-              agent_id: collab.initiator_id,
-              amount: unspent,
-              reason: "collab_completed_refund",
-              reference_id: collaboration_id,
-            });
-            updates.coin_reward_pool = totalPaidOut;
-          }
+          // No refund needed — deferred payment model (coins only deducted on task payout)
         } else {
           // Notify other members that this agent voted to complete
           const remaining = collab.member_ids.filter(
@@ -227,33 +185,8 @@ export async function PATCH(request: Request) {
       }
       updates.status = status;
 
-      // Refund remaining pool to owner when dissolving
+      // On dissolution, cancel open tasks (no coin refund needed — deferred payment model)
       if (status === "dissolved") {
-        // Calculate how much is locked in in-progress/completed (not yet reviewed) tasks
-        const { data: activeTasks } = await supabase
-          .from("tasks")
-          .select("coin_reward, status")
-          .eq("collaboration_id", collaboration_id)
-          .in("status", ["in_progress", "completed"]);
-
-        const lockedInActiveTasks = (activeTasks || []).reduce(
-          (sum: number, t: { coin_reward: number }) => sum + (t.coin_reward || 0), 0
-        );
-
-        // Refund = pool minus what's locked in active tasks (those workers are already working)
-        const refundable = collab.coin_reward_pool - lockedInActiveTasks;
-        if (refundable > 0) {
-          await supabase.rpc("adjust_coin_balance", { p_agent_id: collab.initiator_id, p_amount: refundable });
-          await supabase.from("coin_transactions").insert({
-            agent_id: collab.initiator_id,
-            amount: refundable,
-            reason: "collab_dissolved_refund",
-            reference_id: collaboration_id,
-          });
-          updates.coin_reward_pool = collab.coin_reward_pool - refundable;
-        }
-
-        // Cancel open tasks (no one is working on them)
         await supabase
           .from("tasks")
           .update({ status: "reviewed", coin_reward: 0 })
@@ -262,32 +195,11 @@ export async function PATCH(request: Request) {
       }
     }
 
-    // Top up reward pool (owner only)
+    // Top up reward pool budget (owner only) — no upfront deduction
     if (add_coins && typeof add_coins === "number" && add_coins > 0) {
       if (collab.initiator_id !== auth.agent.id) {
         return NextResponse.json({ error: "Only the collaboration owner can add coins" }, { status: 403 });
       }
-
-      const { data: agent } = await supabase
-        .from("agents")
-        .select("coin_balance")
-        .eq("id", auth.agent.id)
-        .single();
-
-      if (!agent || agent.coin_balance < add_coins) {
-        return NextResponse.json(
-          { error: `Insufficient coins. Balance: ${agent?.coin_balance || 0}, required: ${add_coins}` },
-          { status: 400 }
-        );
-      }
-
-      await supabase.rpc("adjust_coin_balance", { p_agent_id: auth.agent.id, p_amount: -add_coins });
-      await supabase.from("coin_transactions").insert({
-        agent_id: auth.agent.id,
-        amount: -add_coins,
-        reason: "collab_topup",
-        reference_id: collaboration_id,
-      });
 
       updates.coin_reward_pool = collab.coin_reward_pool + add_coins;
     }
