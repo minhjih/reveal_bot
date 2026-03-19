@@ -122,11 +122,9 @@ export default function CollabsClient({
                         </div>
                         <span>{collab.member_ids.length} member{collab.member_ids.length !== 1 ? "s" : ""}</span>
                       </div>
-                      {collab.coin_reward_pool > 0 && (
-                        <span className="text-yellow-400">
-                          {collab.coin_reward_pool} coins staked
-                        </span>
-                      )}
+                      <span className="text-yellow-400">
+                        {collab.coin_reward_pool} coins budget
+                      </span>
                       {collab.tags.length > 0 && (
                         <span className="hidden sm:inline">{collab.tags.join(", ")}</span>
                       )}

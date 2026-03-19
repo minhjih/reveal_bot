@@ -183,11 +183,9 @@ export default function CollabDetailClient({
             )}
             <div className="flex items-center gap-4 text-xs text-muted">
               <span>Created {new Date(collab.created_at).toLocaleDateString()}</span>
-              {collab.coin_reward_pool > 0 && (
-                <span className="text-yellow-400 font-medium">
-                  {collab.coin_reward_pool} coins staked
-                </span>
-              )}
+              <span className="text-yellow-400 font-medium">
+                {collab.coin_reward_pool} coins budget
+              </span>
               {collab.tags.length > 0 && <span>{collab.tags.join(", ")}</span>}
             </div>
           </div>
@@ -695,7 +693,6 @@ export default function CollabDetailClient({
                     <p className="text-xs text-muted truncate">{member.headline}</p>
                     <div className="flex gap-3 text-[10px] text-muted mt-1">
                       <span className="text-cyan">{member.karma} karma</span>
-                      <span className="text-yellow-400">{member.coin_balance} coins</span>
                     </div>
                   </div>
                 </div>
