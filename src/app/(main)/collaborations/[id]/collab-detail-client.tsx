@@ -103,6 +103,15 @@ interface CollabDetailProps {
     created_at: string;
     proposer: { id: string; name: string; slug: string; avatar_url: string | null } | null;
   }[];
+  reviews: {
+    id: string;
+    task_id: string;
+    score: number;
+    feedback: string | null;
+    is_critic: boolean;
+    created_at: string;
+    reviewer: { id: string; name: string; slug: string; avatar_url: string | null } | null;
+  }[];
   threads: ThreadItem[];
   threadMessages: ThreadMsg[];
 }
@@ -129,11 +138,14 @@ export default function CollabDetailClient({
   members,
   tasks,
   negotiations,
+  reviews,
   threads,
   threadMessages,
 }: CollabDetailProps) {
   const taskNegotiations = (taskId: string) =>
     negotiations.filter((n) => n.task_id === taskId);
+  const taskReviews = (taskId: string) =>
+    reviews.filter((r) => r.task_id === taskId);
 
   // Group messages by thread
   const msgsByThread: Record<string, ThreadMsg[]> = {};
@@ -328,6 +340,150 @@ export default function CollabDetailClient({
             })
           )}
         </div>
+
+        {/* Results Summary — consolidated deliverables & reviews */}
+        {tasks.some((t) => t.deliverable || taskReviews(t.id).length > 0) && (
+          <div className="lg:col-span-2 space-y-4">
+            <h2 className="text-lg font-semibold text-foreground">
+              Results Summary
+            </h2>
+
+            {/* Overview stats */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="card text-center py-3">
+                <p className="text-lg font-bold text-foreground">{tasks.length}</p>
+                <p className="text-[10px] text-muted">Total Tasks</p>
+              </div>
+              <div className="card text-center py-3">
+                <p className="text-lg font-bold text-emerald-400">
+                  {tasks.filter((t) => t.status === "reviewed" || t.status === "completed").length}
+                </p>
+                <p className="text-[10px] text-muted">Completed</p>
+              </div>
+              <div className="card text-center py-3">
+                <p className="text-lg font-bold text-yellow-400">
+                  {tasks.reduce((sum, t) => sum + t.coin_reward, 0)}
+                </p>
+                <p className="text-[10px] text-muted">Total Coins</p>
+              </div>
+              <div className="card text-center py-3">
+                <p className={`text-lg font-bold ${
+                  reviews.length > 0
+                    ? (reviews.reduce((s, r) => s + r.score, 0) / reviews.length) >= 7
+                      ? "text-emerald-400"
+                      : (reviews.reduce((s, r) => s + r.score, 0) / reviews.length) >= 5
+                        ? "text-yellow-400"
+                        : "text-red-400"
+                    : "text-muted"
+                }`}>
+                  {reviews.length > 0
+                    ? (reviews.reduce((s, r) => s + r.score, 0) / reviews.length).toFixed(1)
+                    : "—"}
+                </p>
+                <p className="text-[10px] text-muted">Avg Score</p>
+              </div>
+            </div>
+
+            {/* Each task's deliverable + reviews consolidated */}
+            {tasks
+              .filter((t) => t.deliverable || taskReviews(t.id).length > 0)
+              .map((task) => {
+                const tReviews = taskReviews(task.id);
+                const avgScore = tReviews.length > 0
+                  ? tReviews.reduce((s, r) => s + r.score, 0) / tReviews.length
+                  : null;
+                return (
+                  <div key={task.id} className="card space-y-3">
+                    {/* Task header */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Link
+                            href={`/collaborations/${collab.id}/tasks/${task.id}`}
+                            className="font-semibold text-foreground hover:text-cyan transition-colors"
+                          >
+                            {task.title}
+                          </Link>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${TASK_STATUS_COLORS[task.status] || "text-muted"}`}>
+                            {task.status.replace("_", " ")}
+                          </span>
+                          {avgScore !== null && (
+                            <span className={`text-xs font-bold ${
+                              avgScore >= 7 ? "text-emerald-400" : avgScore >= 5 ? "text-yellow-400" : "text-red-400"
+                            }`}>
+                              {avgScore.toFixed(1)}/10
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 text-[10px] text-muted">
+                          {task.assignee && (
+                            <span className="flex items-center gap-1">
+                              <AgentAvatar name={task.assignee.name} specialties={[]} size={14} />
+                              {task.assignee.name}
+                            </span>
+                          )}
+                          {task.coin_reward > 0 && (
+                            <span className="text-yellow-400">{task.coin_reward} coins</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Full deliverable */}
+                    {task.deliverable && (
+                      <div className="bg-white/[0.02] rounded-lg p-4">
+                        <p className="text-[10px] text-muted font-medium mb-2 uppercase tracking-wider">Deliverable</p>
+                        <p className="text-sm text-foreground/80 whitespace-pre-wrap">{task.deliverable}</p>
+                      </div>
+                    )}
+
+                    {/* File attachments */}
+                    {task.file_urls && task.file_urls.length > 0 && (
+                      <FileAttachments urls={task.file_urls} descriptions={task.file_descriptions} />
+                    )}
+
+                    {/* Reviews */}
+                    {tReviews.length > 0 && (
+                      <div className="border-t border-white/5 pt-3">
+                        <p className="text-[10px] text-muted font-medium mb-2 uppercase tracking-wider">
+                          Reviews ({tReviews.length})
+                        </p>
+                        <div className="space-y-2">
+                          {tReviews.map((review) => (
+                            <div key={review.id} className="flex items-start gap-2 text-xs bg-white/[0.02] rounded-lg p-2.5">
+                              {review.reviewer && (
+                                <div className="shrink-0">
+                                  <AgentAvatar name={review.reviewer.name} specialties={[]} size={20} />
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-0.5">
+                                  <span className="font-medium text-foreground">
+                                    {review.reviewer?.name || "?"}
+                                  </span>
+                                  <span className={`font-bold ${
+                                    review.score >= 7 ? "text-emerald-400" : review.score >= 5 ? "text-yellow-400" : "text-red-400"
+                                  }`}>
+                                    {review.score}/10
+                                  </span>
+                                  {review.is_critic && (
+                                    <span className="text-[9px] px-1 py-0.5 rounded bg-white/5 text-muted">critic</span>
+                                  )}
+                                </div>
+                                {review.feedback && (
+                                  <p className="text-foreground/60 whitespace-pre-wrap">{review.feedback}</p>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+          </div>
+        )}
 
         {/* Threads / DM conversations */}
         {threads.length > 0 && (

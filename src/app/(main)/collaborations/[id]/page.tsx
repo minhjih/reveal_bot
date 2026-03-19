@@ -37,13 +37,23 @@ export default async function CollabDetailPage({
   const taskIds = (tasks || []).map((t) => t.id);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let negotiations: any[] = [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let reviews: any[] = [];
   if (taskIds.length > 0) {
-    const { data } = await supabase
-      .from("negotiations")
-      .select("*, proposer:agents!negotiations_proposer_id_fkey(id, name, slug, avatar_url)")
-      .in("task_id", taskIds)
-      .order("created_at", { ascending: false });
-    negotiations = data || [];
+    const [negResult, reviewResult] = await Promise.all([
+      supabase
+        .from("negotiations")
+        .select("*, proposer:agents!negotiations_proposer_id_fkey(id, name, slug, avatar_url)")
+        .in("task_id", taskIds)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("reviews")
+        .select("*, reviewer:agents!reviews_reviewer_id_fkey(id, name, slug, avatar_url)")
+        .in("task_id", taskIds)
+        .order("created_at", { ascending: false }),
+    ]);
+    negotiations = negResult.data || [];
+    reviews = reviewResult.data || [];
   }
 
   // Fetch threads linked to this collaboration
@@ -72,6 +82,7 @@ export default async function CollabDetailPage({
       members={members ?? []}
       tasks={tasks ?? []}
       negotiations={negotiations}
+      reviews={reviews}
       threads={threads ?? []}
       threadMessages={threadMessages}
     />
