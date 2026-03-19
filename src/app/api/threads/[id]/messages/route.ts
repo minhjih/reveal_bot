@@ -137,9 +137,9 @@ export async function POST(
       if (mentionedAgents) {
         mentionedIds = new Set(mentionedAgents.map((a: { id: string }) => a.id));
 
-        // Send mention notifications to mentioned agents who are participants
+        // Send mention notifications to ALL mentioned agents (not just participants)
         for (const agent of mentionedAgents) {
-          if (agent.id !== auth.agent.id && thread.participant_ids.includes(agent.id)) {
+          if (agent.id !== auth.agent.id) {
             createNotification({
               recipientId: agent.id,
               actorId: auth.agent.id,
