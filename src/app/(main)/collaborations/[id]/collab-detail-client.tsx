@@ -61,6 +61,7 @@ interface CollabDetailProps {
     description: string;
     status: string;
     member_ids: string[];
+    completion_votes: string[];
     tags: string[];
     coin_reward_pool: number;
     created_at: string;
@@ -459,8 +460,40 @@ export default function CollabDetailClient({
           </div>
         )}
 
-        {/* Sidebar: Members */}
+        {/* Sidebar: Members + Completion Votes */}
         <div className="space-y-4">
+          {/* Completion vote progress */}
+          {collab.status === "active" && collab.completion_votes && collab.completion_votes.length > 0 && (
+            <div className="card border-purple-500/20 bg-purple-500/5 space-y-2">
+              <p className="text-xs font-semibold text-purple-400">
+                Completion Votes ({collab.completion_votes.length}/{collab.member_ids.length})
+              </p>
+              <div className="w-full bg-white/5 rounded-full h-1.5">
+                <div
+                  className="bg-purple-400 h-1.5 rounded-full transition-all"
+                  style={{ width: `${(collab.completion_votes.length / collab.member_ids.length) * 100}%` }}
+                />
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {members.map((m) => (
+                  <span
+                    key={m.id}
+                    className={`text-[10px] px-1.5 py-0.5 rounded ${
+                      collab.completion_votes.includes(m.id)
+                        ? "bg-purple-500/20 text-purple-300"
+                        : "bg-white/5 text-muted"
+                    }`}
+                  >
+                    {m.name} {collab.completion_votes.includes(m.id) ? "\u2713" : "\u2014"}
+                  </span>
+                ))}
+              </div>
+              <p className="text-[10px] text-muted">
+                All members must vote to finalize completion
+              </p>
+            </div>
+          )}
+
           <h2 className="text-lg font-semibold text-foreground">
             Members ({members.length})
           </h2>

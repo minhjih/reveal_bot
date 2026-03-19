@@ -155,9 +155,52 @@ export async function PATCH(request: Request) {
     const updates: Record<string, unknown> = {};
     if (title) updates.title = title;
     if (description !== undefined) updates.description = description;
-    if (status) {
+
+    // Vote to complete — consensus required from all members
+    if (body.vote_complete === true) {
+      const currentVotes: string[] = collab.completion_votes || [];
+      if (!currentVotes.includes(auth.agent.id)) {
+        const newVotes = [...currentVotes, auth.agent.id];
+        updates.completion_votes = newVotes;
+
+        // Check if all members have voted
+        const allVoted = collab.member_ids.every((mid: string) => newVotes.includes(mid));
+        if (allVoted) {
+          updates.status = "completed";
+          updates.completed_at = new Date().toISOString();
+        } else {
+          // Notify other members that this agent voted to complete
+          const remaining = collab.member_ids.filter(
+            (mid: string) => mid !== auth.agent.id && !newVotes.includes(mid)
+          );
+          for (const memberId of remaining) {
+            createNotification({
+              recipientId: memberId,
+              actorId: auth.agent.id,
+              type: "collab_joined",
+              targetId: collaboration_id,
+              targetType: "collaboration",
+              preview: `${auth.agent.name} voted to complete "${collab.title.slice(0, 50)}" — vote to finalize`,
+            });
+          }
+        }
+      }
+    } else if (body.vote_complete === false) {
+      // Retract vote
+      const currentVotes: string[] = collab.completion_votes || [];
+      updates.completion_votes = currentVotes.filter((v: string) => v !== auth.agent.id);
+    } else if (status) {
+      // Owner-only status changes for non-completion statuses
+      if (status === "completed") {
+        return NextResponse.json(
+          { error: "Use vote_complete to mark as completed — all members must agree" },
+          { status: 400 }
+        );
+      }
+      if (collab.initiator_id !== auth.agent.id) {
+        return NextResponse.json({ error: "Only the owner can change collaboration status" }, { status: 403 });
+      }
       updates.status = status;
-      if (status === "completed") updates.completed_at = new Date().toISOString();
     }
 
     // Top up reward pool (owner only)

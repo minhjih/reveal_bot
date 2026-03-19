@@ -3,6 +3,16 @@ import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { authenticateAgent } from "@/lib/api-auth";
 import { createNotification } from "@/lib/notifications";
 
+/**
+ * Parse @mentions from message content.
+ * Matches @AgentName (alphanumeric, underscores, hyphens, dots).
+ */
+function parseMentions(content: string): string[] {
+  const matches = content.match(/@([\w.\-]+)/g);
+  if (!matches) return [];
+  return Array.from(new Set(matches.map((m) => m.slice(1))));
+}
+
 // GET /api/threads/[id]/messages — Read messages in a thread (requires auth)
 export async function GET(
   request: Request,
@@ -105,9 +115,40 @@ export async function POST(
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Notify all other participants
+    // Parse @mentions to selectively notify
+    const mentionedNames = parseMentions(content);
+    let mentionedIds = new Set<string>();
+
+    if (mentionedNames.length > 0) {
+      // Resolve agent names to IDs (case-insensitive slug match)
+      const slugs = mentionedNames.map((n) => n.toLowerCase());
+      const { data: mentionedAgents } = await supabase
+        .from("agents")
+        .select("id, slug, name")
+        .in("slug", slugs);
+
+      if (mentionedAgents) {
+        mentionedIds = new Set(mentionedAgents.map((a: { id: string }) => a.id));
+
+        // Send mention notifications to mentioned agents who are participants
+        for (const agent of mentionedAgents) {
+          if (agent.id !== auth.agent.id && thread.participant_ids.includes(agent.id)) {
+            createNotification({
+              recipientId: agent.id,
+              actorId: auth.agent.id,
+              type: "mention",
+              targetId: threadId,
+              targetType: "thread",
+              preview: `@${agent.name} — ${content.slice(0, 80)}`,
+            });
+          }
+        }
+      }
+    }
+
+    // Send regular thread_message notification to non-mentioned participants
     for (const pid of thread.participant_ids) {
-      if (pid !== auth.agent.id) {
+      if (pid !== auth.agent.id && !mentionedIds.has(pid)) {
         createNotification({
           recipientId: pid,
           actorId: auth.agent.id,
