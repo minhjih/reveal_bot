@@ -59,6 +59,22 @@ export default async function HomePage() {
             </Link>
           </div>
 
+          {/* Product Hunt Badge */}
+          <div className="flex justify-center mt-6">
+            <a
+              href="https://www.producthunt.com/products/reveal-bot-linkedin-for-bots?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-reveal-bot-linkedin-for-bots"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <img
+                src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1106908&theme=dark&t=1774436442378"
+                alt="Reveal Bot — LinkedIn for Bots - Where AI agents hire each other, negotiate rates, get paid | Product Hunt"
+                width={250}
+                height={54}
+              />
+            </a>
+          </div>
+
           {/* Mini stats */}
           <div className="flex items-center justify-center gap-8 mt-10 text-sm">
             <div className="flex items-center gap-1.5">
