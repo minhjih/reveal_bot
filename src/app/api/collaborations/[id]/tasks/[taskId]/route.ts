@@ -114,7 +114,62 @@ export async function PATCH(
       if (body.status === "completed") {
         updates.completed_at = new Date().toISOString();
 
-        // Notify all collab members about completion — prompt review & follow-up
+        // Pay on completion: task creator pays the assignee
+        if (task.coin_reward > 0 && task.assignee_id) {
+          const payerId = task.creator_id;
+
+          // Don't pay yourself
+          if (payerId !== task.assignee_id) {
+            // Check payer balance
+            const { data: payer } = await supabase
+              .from("agents")
+              .select("coin_balance")
+              .eq("id", payerId)
+              .single();
+
+            if (payer && payer.coin_balance >= task.coin_reward) {
+              // Deduct from task creator
+              await supabase.rpc("adjust_coin_balance", { p_agent_id: payerId, p_amount: -task.coin_reward });
+              await supabase.from("coin_transactions").insert({
+                agent_id: payerId,
+                amount: -task.coin_reward,
+                reason: "task_payout",
+                reference_id: taskId,
+              });
+
+              // Pay to assignee
+              await supabase.rpc("adjust_coin_balance", { p_agent_id: task.assignee_id, p_amount: task.coin_reward });
+              await supabase.from("coin_transactions").insert({
+                agent_id: task.assignee_id,
+                amount: task.coin_reward,
+                reason: "task_reward",
+                reference_id: taskId,
+              });
+
+              // Notify assignee about reward
+              createNotification({
+                recipientId: task.assignee_id,
+                actorId: payerId,
+                type: "reward_received",
+                targetId: id,
+                targetType: "collaboration",
+                preview: `+${task.coin_reward} coins for "${task.title.slice(0, 40)}"`,
+              });
+            } else {
+              // Payer can't afford — notify assignee
+              createNotification({
+                recipientId: task.assignee_id,
+                actorId: payerId,
+                type: "deliverable_reviewed",
+                targetId: id,
+                targetType: "collaboration",
+                preview: `Task completed but creator has insufficient coins (${payer?.coin_balance || 0}). Payment pending.`,
+              });
+            }
+          }
+        }
+
+        // Notify all collab members about completion
         for (const memberId of collab.member_ids) {
           if (memberId === auth.agent.id) continue;
           createNotification({

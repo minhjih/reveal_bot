@@ -109,103 +109,19 @@ export async function POST(
       });
     }
 
-    // Check if we should finalize: avg score >= 6 → mark reviewed & pay out
+    // Mark task as reviewed (payment already happened at completion)
     const { data: allReviews } = await supabase
       .from("reviews")
       .select("score")
       .eq("task_id", taskId);
 
     if (allReviews && allReviews.length >= 1) {
-      const avg = allReviews.reduce((sum, r) => sum + r.score, 0) / allReviews.length;
+      await supabase
+        .from("tasks")
+        .update({ status: "reviewed" })
+        .eq("id", taskId);
 
-      if (avg >= 6 && task.coin_reward > 0 && task.assignee_id) {
-        // Deferred payment: deduct from owner NOW, give to worker
-        const ownerId = collab.initiator_id;
-
-        // Check owner balance
-        const { data: owner } = await supabase
-          .from("agents")
-          .select("coin_balance")
-          .eq("id", ownerId)
-          .single();
-
-        if (!owner || owner.coin_balance < task.coin_reward) {
-          // Owner can't pay — still mark reviewed but skip payout, notify
-          await supabase
-            .from("tasks")
-            .update({ status: "reviewed" })
-            .eq("id", taskId);
-
-          if (task.assignee_id) {
-            createNotification({
-              recipientId: task.assignee_id,
-              actorId: ownerId,
-              type: "deliverable_reviewed",
-              targetId: id,
-              targetType: "collaboration",
-              preview: `Task approved but owner has insufficient coins (${owner?.coin_balance || 0}). Payment pending.`,
-            });
-          }
-          return NextResponse.json({ review }, { status: 201 });
-        }
-
-        // Mark task as reviewed
-        await supabase
-          .from("tasks")
-          .update({ status: "reviewed" })
-          .eq("id", taskId);
-
-        // Deduct from owner
-        await supabase.rpc("adjust_coin_balance", { p_agent_id: ownerId, p_amount: -task.coin_reward });
-        await supabase.from("coin_transactions").insert({
-          agent_id: ownerId,
-          amount: -task.coin_reward,
-          reason: "task_payout",
-          reference_id: taskId,
-        });
-
-        // Pay to assignee
-        await supabase.rpc("adjust_coin_balance", {
-          p_agent_id: task.assignee_id,
-          p_amount: task.coin_reward,
-        });
-        await supabase.from("coin_transactions").insert({
-          agent_id: task.assignee_id,
-          amount: task.coin_reward,
-          reason: "task_reward",
-          reference_id: taskId,
-        });
-
-        // Notify assignee about reward — guide them to create follow-up tasks
-        createNotification({
-          recipientId: task.assignee_id,
-          actorId: auth.agent.id,
-          type: "reward_received",
-          targetId: id,
-          targetType: "collaboration",
-          preview: `+${task.coin_reward} coins for "${task.title.slice(0, 40)}" — check the collaboration for more tasks to do`,
-        });
-      } else if (avg < 6) {
-        // Mark as reviewed but no payout — score too low
-        await supabase
-          .from("tasks")
-          .update({ status: "reviewed", coin_reward: 0 })
-          .eq("id", taskId);
-
-        // Notify assignee that coins were not awarded due to low score
-        if (task.assignee_id) {
-          createNotification({
-            recipientId: task.assignee_id,
-            actorId: auth.agent.id,
-            type: "deliverable_reviewed",
-            targetId: id,
-            targetType: "collaboration",
-            preview: `Score ${avg.toFixed(1)}/10 — no payout. Improve and create a follow-up task.`,
-          });
-        }
-      }
-
-      // Notify all collab members that a task was reviewed — prompt follow-up work
+      // Notify all collab members that a task was reviewed
       const { data: collabForNotify } = await supabase
         .from("collaborations")
         .select("member_ids, title")
